@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 import networkx as nx
+import numpy as np
 
 
 @dataclass
@@ -31,9 +32,10 @@ class Node:
 
     id: int
     utilization: float = 0.0        # u, always below 1
-    wcet: float = 0.0               # execution time = u * T
+    wcet: float = 0.0               # execution time = u * T, at speed 1.0
     is_dummy: bool = False          # True for the source and the sink
     segments: List[Segment] = field(default_factory=list)
+    core_id: Optional[int] = None   # set by the mapping step (OC-HEFT)
 
     @property
     def resources_used(self) -> List[int]:
@@ -47,6 +49,14 @@ class Node:
     @property
     def critical_time(self) -> float:
         return sum(s.length for s in self.segments if s.is_critical)
+
+    def demand(self, resource_id: int) -> float:
+        """Total time this node holds the given resource.
+
+        This is Demand_i(r) in the OC-HEFT contention cost.
+        """
+        return sum(s.length for s in self.segments
+                   if s.is_critical and s.resource_id == resource_id)
 
     def __repr__(self):
         return f"Node({self.id}, wcet={self.wcet:.2f}, cs={self.num_critical_sections})"
@@ -63,12 +73,19 @@ class Task:
     nodes: Dict[int, Node]
     source_id: int
     sink_id: int
-    core_id: Optional[int] = None                    # set by the partitioner later
 
     @property
     def deadline(self) -> float:
         """D = T (implicit deadline)."""
         return self.period
+
+    def comm_cost(self, u: int, v: int) -> float:
+        """Communication cost of the edge u -> v.
+
+        This is the *nominal* cost. It is only really paid when the two
+        nodes end up on different cores; on the same core it is zero.
+        """
+        return self.graph.edges[u, v].get("comm", 0.0)
 
     @property
     def wcet(self) -> float:
@@ -138,25 +155,47 @@ class Resource:
 
 @dataclass
 class Core:
-    """One processor.
+    """One processor, either on the local machine or on an edge server.
 
-    Only one task runs on a core at a time, so ``running_task`` is a single
-    value, not a list. The queue and the running task stay empty until the
+    ``server_id`` is None for a local core, otherwise the number of the
+    edge server it belongs to. Edge cores have a higher ``speed``, which
+    makes the same node run faster there.
+
+    Only one node runs on a core at a time, so ``running`` is a single
+    value, not a list. The queue and ``running`` stay empty until the
     scheduler is added.
     """
 
     id: int
-    assigned_tasks: List[int] = field(default_factory=list)
-    utilization: float = 0.0
-    execution_queue: List[int] = field(default_factory=list)
-    running_task: Optional[int] = None
+    speed: float = 1.0
+    server_id: Optional[int] = None                  # None = local core
 
-    def assign(self, task_id: int, utilization: float) -> None:
-        self.assigned_tasks.append(task_id)
+    # filled by the mapping step
+    assigned_nodes: List[tuple] = field(default_factory=list)   # (task_id, node_id)
+    utilization: float = 0.0
+
+    # filled by the scheduler
+    execution_queue: List[tuple] = field(default_factory=list)
+    running: Optional[tuple] = None
+
+    @property
+    def is_edge(self) -> bool:
+        return self.server_id is not None
+
+    @property
+    def name(self) -> str:
+        return f"E{self.server_id}.{self.id}" if self.is_edge else f"L{self.id}"
+
+    def exec_time(self, wcet: float) -> float:
+        """Exec(T_i, P_j) = WCET_i / Speed_j."""
+        return wcet / self.speed
+
+    def assign(self, task_id: int, node_id: int, utilization: float) -> None:
+        self.assigned_nodes.append((task_id, node_id))
         self.utilization += utilization
 
     def __repr__(self):
-        return f"Core({self.id}, u={self.utilization:.3f})"
+        return f"Core({self.name}, speed={self.speed}, u={self.utilization:.3f})"
 
 
 @dataclass
@@ -173,7 +212,14 @@ class TaskSet:
 
     @property
     def u_norm(self) -> float:
-        return self.total_utilization / len(self.cores)
+        """U divided by the number of *local* cores.
+
+        U_norm is defined as the load of the local machine, so the edge
+        cores must not be counted here or the number would shrink as soon
+        as edge servers are added.
+        """
+        local = len(self.local_cores)
+        return self.total_utilization / local if local else 0.0
 
     @property
     def total_nodes(self) -> int:
@@ -183,6 +229,53 @@ class TaskSet:
     def total_critical_sections(self) -> int:
         return sum(n.num_critical_sections
                    for t in self.tasks for n in t.real_nodes())
+
+    # -- platform ------------------------------------------------------
+    @property
+    def local_cores(self) -> List[Core]:
+        return [c for c in self.cores if not c.is_edge]
+
+    @property
+    def edge_cores(self) -> List[Core]:
+        return [c for c in self.cores if c.is_edge]
+
+    @property
+    def edge_server_ids(self) -> List[int]:
+        return sorted({c.server_id for c in self.edge_cores})
+
+    def core(self, core_id: int) -> Core:
+        return self.cores[core_id]
+
+    @property
+    def hyperperiod(self) -> float:
+        """Least common multiple of the task periods.
+
+        The whole schedule repeats after this long, so simulations and the
+        resource-usage percentages are measured over one hyperperiod.
+        """
+        periods = [int(round(t.period)) for t in self.tasks]
+        return float(np.lcm.reduce(periods)) if periods else 0.0
+
+    def resource_demand(self, resource_id: int) -> float:
+        """Total time all nodes hold this resource, over one hyperperiod.
+
+        Each task runs hyperperiod / period times, so its demand counts
+        that many times.
+        """
+        total = 0.0
+        for task in self.tasks:
+            releases = self.hyperperiod / task.period
+            per_release = sum(n.demand(resource_id) for n in task.real_nodes())
+            total += releases * per_release
+        return total
+
+    def resource_usage_ratio(self, resource_id: int) -> float:
+        """Share of the hyperperiod spent holding this resource.
+
+        This is the "R1 = 60%" figure from the project definition.
+        """
+        return (self.resource_demand(resource_id) / self.hyperperiod
+                if self.hyperperiod else 0.0)
 
     def check(self) -> None:
         """Make sure the generated task set really follows the rules."""

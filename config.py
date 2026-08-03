@@ -18,8 +18,18 @@ class Config:
 
     seed: int = 1                     # same seed -> same task set
 
-    # platform
-    num_cores: int = 8                # m, the spec uses 4, 8, 16 or 32
+    # platform: the local machine
+    num_cores: int = 8                # m, the spec uses 2, 4, 8, 16 or 32
+    local_speed: float = 1.0          # all local cores run at the same speed
+
+    # platform: the edge servers (0 servers = no offloading at all)
+    num_edge_servers: int = 2         # es, the spec uses 1, 2, 3 or 4
+    cores_per_edge_server: int = 8    # the spec uses 8, 16, 32 or 64
+    edge_speed: float = 2.0           # edge cores are faster than local ones
+
+    # communication between nodes of the same task (CCR)
+    ccr: float = 0.5                  # spec: 0.25 .. 1.75
+    comm_factors: tuple = (0.5, 1.5)  # comm = U(0.5 * average, 1.5 * average)
 
     # load
     u_norm: float = 0.5               # utilization per core, 0.1 .. 1
@@ -38,12 +48,47 @@ class Config:
     # ---------------------------------------------------------------
     @property
     def total_utilization(self) -> float:
-        """U = m * U_norm."""
+        """U = m * U_norm.
+
+        Only the local cores count here: U_norm is defined as the load of
+        the local machine. The edge servers are extra capacity that the
+        mapping step may use, not part of this formula.
+        """
         return self.num_cores * self.u_norm
+
+    @property
+    def num_edge_cores(self) -> int:
+        return self.num_edge_servers * self.cores_per_edge_server
+
+    @property
+    def total_cores(self) -> int:
+        """Local cores plus every edge core."""
+        return self.num_cores + self.num_edge_cores
+
+    @property
+    def offloading_enabled(self) -> bool:
+        """False when there are no edge servers (the local-only scenario)."""
+        return self.num_edge_servers > 0
 
     # -- setters: change a value ------------------------------------
     def set_num_cores(self, m):
         self.num_cores = m
+        return self
+
+    def set_num_edge_servers(self, es):
+        self.num_edge_servers = es
+        return self
+
+    def set_cores_per_edge_server(self, m):
+        self.cores_per_edge_server = m
+        return self
+
+    def set_edge_speed(self, speed):
+        self.edge_speed = speed
+        return self
+
+    def set_ccr(self, ccr):
+        self.ccr = ccr
         return self
 
     def set_u_norm(self, u):
@@ -88,6 +133,11 @@ class Config:
         low, high = self.nodes_per_task
         return int(rng.integers(low, high + 1))
 
+    def pick_comm_cost(self, average: float, rng: np.random.Generator) -> float:
+        """Cost of one edge: uniform between 0.5 and 1.5 of the average."""
+        low, high = self.comm_factors
+        return float(rng.uniform(low * average, high * average))
+
     # ---------------------------------------------------------------
     def check(self) -> None:
         if self.num_cores < 1:
@@ -98,8 +148,21 @@ class Config:
             raise ValueError("num_tasks must be >= 1")
         if not 0.1 <= self.csp <= 1.0:
             raise ValueError("csp must be between 0.1 and 1")
+        if self.num_edge_servers < 0:
+            raise ValueError("num_edge_servers must be >= 0")
+        if self.local_speed <= 0 or self.edge_speed <= 0:
+            raise ValueError("core speeds must be > 0")
+        if self.ccr <= 0:
+            raise ValueError("ccr must be > 0")
 
     def describe(self) -> str:
-        return (f"m={self.num_cores} cores, U_norm={self.u_norm}, "
+        if self.offloading_enabled:
+            platform = (f"m={self.num_cores} local + {self.num_edge_servers} edge"
+                        f"x{self.cores_per_edge_server} "
+                        f"(speed {self.local_speed}/{self.edge_speed})")
+        else:
+            platform = f"m={self.num_cores} local only (no offloading)"
+        return (f"{platform}, U_norm={self.u_norm}, "
                 f"U={self.total_utilization:.2f}, n={self.num_tasks} tasks, "
-                f"n_r={self.num_resources}, CSP={self.csp}, seed={self.seed}")
+                f"n_r={self.num_resources}, CSP={self.csp}, CCR={self.ccr}, "
+                f"seed={self.seed}")

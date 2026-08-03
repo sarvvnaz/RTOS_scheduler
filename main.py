@@ -7,9 +7,9 @@
 
 import argparse
 
-from .config import Config
-from .display import show_summary, show_taskset
-from .generator import generate_taskset
+from config import Config
+from display import show_ranks, show_summary, show_taskset
+from generator import generate_taskset
 
 
 def main():
@@ -20,15 +20,28 @@ def main():
     p.add_argument("--tasks", type=int, default=4)
     p.add_argument("--resources", type=int, default=4)
     p.add_argument("--csp", type=float, default=0.5)
+    p.add_argument("--edge-servers", type=int, default=2,
+                   help="number of edge servers (0 = local only, no offloading)")
+    p.add_argument("--edge-cores", type=int, default=8,
+                   help="cores per edge server")
+    p.add_argument("--edge-speed", type=float, default=2.0,
+                   help="how much faster an edge core is than a local one")
+    p.add_argument("--ccr", type=float, default=0.5,
+                   help="communication to computation ratio")
     p.add_argument("--nodes", type=int, nargs=2, default=(20, 50),
                    metavar=("LOW", "HIGH"))
     p.add_argument("--short", action="store_true")
+    p.add_argument("--ranks", action="store_true",
+                   help="show the upward rank of each node (OC-HEFT step 1)")
     args = p.parse_args()
 
     # every setting is applied here, in one place
     cfg = Config(seed=args.seed, num_cores=args.cores, u_norm=args.u_norm,
                  num_tasks=args.tasks, num_resources=args.resources,
-                 csp=args.csp, nodes_per_task=tuple(args.nodes))
+                 csp=args.csp, nodes_per_task=tuple(args.nodes),
+                 num_edge_servers=args.edge_servers,
+                 cores_per_edge_server=args.edge_cores,
+                 edge_speed=args.edge_speed, ccr=args.ccr)
 
     taskset = generate_taskset(cfg)
 
@@ -37,6 +50,10 @@ def main():
         print(show_summary(taskset))
     else:
         print(show_taskset(taskset, title=cfg.describe()))
+
+    if args.ranks:
+        for task in taskset.tasks:
+            print(show_ranks(task))
 
 
 if __name__ == "__main__":

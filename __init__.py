@@ -1,21 +1,21 @@
 """Generating periodic DAG task sets with shared resources.
 
-This stage builds the system setup only: the cores, the task graphs, the
-execution sequence of every node (normal and critical sections) and the
-shared resources - and prints all of it.
+The modules are flat and use plain imports, so everything runs from
+inside this folder:
 
-Still to come: the resource-management protocol, assigning tasks to cores
-plus the scheduler, and offloading.
+    python main.py --tasks 3 --edge-servers 2
+
+and from a script or notebook in this same folder:
+
+    from config import Config
+    from generator import generate_taskset
+    from display import show_taskset
+
+This stage builds the system setup: the cores (local machine plus edge
+servers), the task graphs, the execution sequence of every node (normal
+and critical sections), the shared resources, and the communication cost
+of every edge - and prints all of it.
+
+Still to come: mapping nodes onto cores with OC-HEFT, the partitioned-EDF
+scheduler, and the spin-lock / suspension-based resource protocols.
 """
-
-from .config import Config
-from .display import show_node, show_summary, show_task, show_taskset
-from .generator import generate_many, generate_taskset
-from .model import Core, Node, Resource, Segment, Task, TaskSet
-
-__all__ = [
-    "Config",
-    "generate_taskset", "generate_many",
-    "Segment", "Node", "Task", "Resource", "Core", "TaskSet",
-    "show_taskset", "show_task", "show_node", "show_summary",
-]

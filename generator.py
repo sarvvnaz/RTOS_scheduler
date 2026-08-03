@@ -15,9 +15,9 @@ from typing import Dict, List
 import networkx as nx
 import numpy as np
 
-from .algorithms import randfixedsum, uunifast
-from .config import Config
-from .model import Core, Node, Resource, Segment, Task, TaskSet
+from algorithms import randfixedsum, uunifast
+from config import Config
+from model import Core, Node, Resource, Segment, Task, TaskSet
 
 SOURCE_ID = 0
 
@@ -27,8 +27,8 @@ def generate_taskset(cfg: Config) -> TaskSet:
     cfg.check()
     rng = np.random.default_rng(cfg.seed)
 
-    # 1. cores
-    cores = [Core(id=i) for i in range(cfg.num_cores)]
+    # 1. cores: the local machine plus the edge servers
+    cores = _make_cores(cfg)
 
     # 2. node counts, decided first so we know the utilizations will fit
     node_counts = [cfg.pick_num_nodes(rng) for _ in range(cfg.num_tasks)]
@@ -52,6 +52,30 @@ def generate_many(cfg: Config, count: int = 100) -> List[TaskSet]:
     """Generate several task sets (the experiments use 100 per setting)."""
     return [generate_taskset(cfg.copy_with(seed=cfg.seed + i))
             for i in range(count)]
+
+
+# ---------------------------------------------------------------------------
+# Step 1: the platform
+# ---------------------------------------------------------------------------
+
+def _make_cores(cfg: Config) -> List[Core]:
+    """Local cores first, then the cores of each edge server.
+
+    Every core gets a unique id, so a core is identified by one number no
+    matter where it lives. Edge cores are faster, which is what makes
+    offloading worthwhile.
+    """
+    cores = [Core(id=i, speed=cfg.local_speed, server_id=None)
+             for i in range(cfg.num_cores)]
+
+    next_id = cfg.num_cores
+    for server in range(1, cfg.num_edge_servers + 1):
+        for _ in range(cfg.cores_per_edge_server):
+            cores.append(Core(id=next_id, speed=cfg.edge_speed,
+                              server_id=server))
+            next_id += 1
+
+    return cores
 
 
 # ---------------------------------------------------------------------------
@@ -98,9 +122,26 @@ def _make_task(task_id: int, utilization: float, num_nodes: int,
         nodes[node_id] = Node(id=node_id, utilization=u,
                               wcet=u * period, is_dummy=dummy)
 
-    return Task(id=task_id, period=period, utilization=float(node_utils.sum()),
+    task = Task(id=task_id, period=period, utilization=float(node_utils.sum()),
                 graph=graph, nodes=nodes,
                 source_id=SOURCE_ID, sink_id=sink_id)
+    _add_comm_costs(task, cfg, rng)
+    return task
+
+
+def _add_comm_costs(task: Task, cfg: Config, rng: np.random.Generator) -> None:
+    """Give every edge of the graph a communication cost.
+
+        average = CCR * C_i
+        comm(u, v) = U(0.5 * average, 1.5 * average)
+
+    The cost is stored on every edge, but it is only actually paid when the
+    two endpoints are mapped to different cores. Two nodes on the same core
+    communicate for free.
+    """
+    average = cfg.ccr * task.wcet
+    for u, v in task.graph.edges:
+        task.graph.edges[u, v]["comm"] = cfg.pick_comm_cost(average, rng)
 
 
 def _make_graph(num_nodes: int, edge_prob: float,
