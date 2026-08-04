@@ -48,6 +48,9 @@ class Config:
     # what balances them.
     cost_weights: tuple = (1.0, 1.0, 1.0)   # w1, w2, w3
 
+    # protocol overhead: one context switch, paid twice per suspension
+    context_switch: float = 1.0       # only LPP-P pays this
+
     # shared resources
     num_resources: int = 4            # n_r, the spec allows 2 .. 8
     accesses_per_resource: int = 30   # N_q, the spec uses 10/30/50/80/150
