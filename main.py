@@ -8,7 +8,7 @@
 import argparse
 
 from config import Config
-from display import show_ranks, show_summary, show_taskset
+from display import show_mapping, show_ranks, show_summary, show_taskset
 from generator import generate_taskset
 
 
@@ -33,6 +33,8 @@ def main():
     p.add_argument("--short", action="store_true")
     p.add_argument("--ranks", action="store_true",
                    help="show the upward rank of each node (OC-HEFT step 1)")
+    p.add_argument("--map", action="store_true",
+                   help="run OC-HEFT and show where each node was placed")
     args = p.parse_args()
 
     # every setting is applied here, in one place
@@ -54,6 +56,10 @@ def main():
     if args.ranks:
         for task in taskset.tasks:
             print(show_ranks(task))
+
+    if args.map:
+        from mapping import map_taskset
+        print(show_mapping(taskset, map_taskset(taskset, cfg)))
 
 
 if __name__ == "__main__":

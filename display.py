@@ -149,6 +149,51 @@ def show_ranks(task: Task, limit: int = 12) -> str:
     return "\n".join(lines)
 
 
+def show_mapping(taskset: TaskSet, mapper, limit: int = 10) -> str:
+    """Where OC-HEFT put every node, and what it cost.
+
+    ``mapper`` is a finished ``mapping.Mapper``.
+    """
+    lines = [THIN, "OC-HEFT mapping"]
+
+    w1, w2, w3 = mapper.w1, mapper.w2, mapper.w3
+    lines.append(f"  cost = {w1}*Exec + {w2}*Comm + {w3}*RC   "
+                 f"subject to finish <= deadline and u <= 1")
+
+    for task in taskset.tasks:
+        placed = [p for p in mapper.placements if p.task_id == task.id]
+        ok = [p for p in placed if p.placed]
+        lines.append(f"  task {task.id}: {len(ok)}/{len(placed)} nodes placed")
+
+        for p in placed[:limit]:
+            if not p.placed:
+                reasons = set(p.rejected.values()) or {"no core"}
+                lines.append(f"    node {p.node_id:<4} UNPLACED     "
+                             f"({', '.join(sorted(reasons))})")
+                continue
+            core = taskset.core(p.core_id)
+            lines.append(
+                f"    node {p.node_id:<4} -> {core.name:<7} "
+                f"exec={p.exec_cost:8.2f} comm={p.comm_cost:9.2f} "
+                f"rc={p.contention:7.3f}  finish={p.finish_time:9.2f}")
+
+        if len(placed) > limit:
+            lines.append(f"    ... and {len(placed) - limit} more")
+
+    used = [c for c in taskset.cores if c.assigned_nodes]
+    lines.append(f"  cores used: {len(used)} of {len(taskset.cores)}")
+    for core in used:
+        lines.append(f"    {core.name:<7} u={core.utilization:.3f}  "
+                     f"{len(core.assigned_nodes)} nodes")
+
+    if mapper.succeeded:
+        lines.append("  every node was placed: the set is schedulable here")
+    else:
+        lines.append(f"  NOT schedulable: {len(mapper.unplaced)} node(s) "
+                     f"had no core satisfying both conditions")
+    return "\n".join(lines)
+
+
 def show_summary(taskset: TaskSet) -> str:
     """Short version: one line per task."""
     lines = [f"{len(taskset.tasks)} tasks, {len(taskset.resources)} resources, "
