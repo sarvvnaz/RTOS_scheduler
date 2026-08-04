@@ -40,6 +40,14 @@ class Config:
     edge_prob: float = 0.1            # p of the Erdos-Renyi graph
     periods: tuple = (2000, 4000, 6000)   # T_i is picked from this list
 
+    # OC-HEFT cost weights: Cost = w1 * Exec + w2 * Comm + w3 * RC
+    #
+    # The spec gives the formula but fixes no values, so they are settings.
+    # The three terms are on very different scales -- Comm is driven by
+    # CCR * C_i and is usually far larger than Exec -- so these weights are
+    # what balances them.
+    cost_weights: tuple = (1.0, 1.0, 1.0)   # w1, w2, w3
+
     # shared resources
     num_resources: int = 4            # n_r, the spec allows 2 .. 8
     accesses_per_resource: int = 30   # N_q, the spec uses 10/30/50/80/150
@@ -154,6 +162,10 @@ class Config:
             raise ValueError("core speeds must be > 0")
         if self.ccr <= 0:
             raise ValueError("ccr must be > 0")
+        if len(self.cost_weights) != 3:
+            raise ValueError("cost_weights must be (w1, w2, w3)")
+        if any(w < 0 for w in self.cost_weights):
+            raise ValueError("cost weights must be >= 0")
 
     def describe(self) -> str:
         if self.offloading_enabled:
