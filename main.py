@@ -12,6 +12,40 @@ from display import show_mapping, show_ranks, show_summary, show_taskset
 from generator import generate_taskset
 
 
+def run_experiments(cfg, count: int, directory: str) -> None:
+    """Run every sweep, draw the charts, and write the numbers beside them.
+
+    This is the final output the project asks for.
+    """
+    import os
+    import time
+
+    from charts import draw_all
+    from experiments import SCENARIOS, SWEEPS, run_all, to_csv
+
+    skipped = [s.name for s in SCENARIOS if not s.implemented]
+    print(f"{len(SWEEPS)} sweeps x {count} task sets per point")
+    if skipped:
+        print(f"not run: {', '.join(skipped)} (not implemented yet)")
+
+    def progress(sweep, scenario, point):
+        print(f"  {sweep.key:<22} {scenario.name:<26} "
+              f"{sweep.label}={point.value:<6} "
+              f"sched={point.schedulability:.2f} qos={point.quality_of_service:.2f}")
+
+    start = time.time()
+    results = run_all(cfg, count=count, progress=progress)
+
+    written = draw_all(results, directory)
+    csv_path = os.path.join(directory, "results.csv")
+    with open(csv_path, "w") as handle:
+        handle.write(to_csv(results))
+
+    print(f"\ndone in {time.time() - start:.0f}s")
+    for path in written + [csv_path]:
+        print(f"  {path}")
+
+
 def main():
     p = argparse.ArgumentParser(description="Generate and show a task set")
     p.add_argument("--seed", type=int, default=1)
@@ -35,6 +69,12 @@ def main():
                    help="show the upward rank of each node (OC-HEFT step 1)")
     p.add_argument("--map", action="store_true",
                    help="run OC-HEFT and show where each node was placed")
+    p.add_argument("--experiments", action="store_true",
+                   help="run every sweep and draw the charts (the final output)")
+    p.add_argument("--count", type=int, default=100,
+                   help="task sets per point (the definition asks for 100)")
+    p.add_argument("--charts-dir", default="charts",
+                   help="where to write the charts and the csv")
     args = p.parse_args()
 
     # every setting is applied here, in one place
@@ -44,6 +84,10 @@ def main():
                  num_edge_servers=args.edge_servers,
                  cores_per_edge_server=args.edge_cores,
                  edge_speed=args.edge_speed, ccr=args.ccr)
+
+    if args.experiments:
+        run_experiments(cfg, args.count, args.charts_dir)
+        return
 
     taskset = generate_taskset(cfg)
 

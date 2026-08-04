@@ -74,12 +74,7 @@ def test(taskset: TaskSet, mapper, analysis: ResourceAnalysis) -> Result:
                     protocol=analysis.protocol,
                     unplaced_nodes=len(mapper.unplaced))
 
-    # 1. the mapping itself
-    if not mapper.succeeded:
-        result._qos = 0.0
-        return result
-
-    # 2. per-core EDF utilization, blocking included
+    # 1. per-core EDF utilization, blocking included
     for core in taskset.cores:
         if not core.assigned_nodes:
             continue
@@ -88,16 +83,31 @@ def test(taskset: TaskSet, mapper, analysis: ResourceAnalysis) -> Result:
         if utilization > 1.0 + 1e-9:
             result.overloaded.append(core.id)
 
-    # 3. under POMIP, the response-time bound as well
-    if analysis.protocol is Protocol.POMIP:
-        for task in taskset.tasks:
+    overloaded = set(result.overloaded)
+
+    # 2. a verdict per task, so a partly failing set is not all-or-nothing
+    for task in taskset.tasks:
+        cores_used = {n.core_id for n in task.real_nodes()}
+
+        if None in cores_used:
+            result.missed.append(task.id)       # some node found no core
+            continue
+
+        if cores_used & overloaded:
+            result.missed.append(task.id)       # shares an overloaded core
+            continue
+
+        # under POMIP the response-time bound has to hold as well
+        if analysis.protocol is Protocol.POMIP:
             blocking = analysis.task_blocking.get(task.id)
             if blocking and not blocking.meets_deadline(task.deadline):
                 result.missed.append(task.id)
 
     met = len(taskset.tasks) - len(result.missed)
     result._qos = met / len(taskset.tasks) if taskset.tasks else 0.0
-    result.schedulable = not result.overloaded and not result.missed
+    result.schedulable = (mapper.succeeded
+                          and not result.overloaded
+                          and not result.missed)
     return result
 
 
