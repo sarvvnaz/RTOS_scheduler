@@ -14,8 +14,11 @@ A task set passes only if all three hold:
 
   1. every node found a core at all (the mapping succeeded)
   2. every core passes the EDF utilization test
-  3. under POMIP, every task also meets its deadline by the paper's
-     response-time bound
+  3. every task meets its deadline by the response-time bound
+
+The third test is applied to *both* protocols, with each one's own
+blocking term. Running it for one protocol only would fail that protocol
+for a reason the other is never asked about, which is not a comparison.
 """
 
 from dataclasses import dataclass, field
@@ -97,11 +100,10 @@ def test(taskset: TaskSet, mapper, analysis: ResourceAnalysis) -> Result:
             result.missed.append(task.id)       # shares an overloaded core
             continue
 
-        # under POMIP the response-time bound has to hold as well
-        if analysis.protocol is Protocol.POMIP:
-            blocking = analysis.task_blocking.get(task.id)
-            if blocking and not blocking.meets_deadline(task.deadline):
-                result.missed.append(task.id)
+        # the response-time bound, which both protocols now face
+        blocking = analysis.task_blocking.get(task.id)
+        if blocking and not blocking.meets_deadline(task.deadline):
+            result.missed.append(task.id)
 
     met = len(taskset.tasks) - len(result.missed)
     result._qos = met / len(taskset.tasks) if taskset.tasks else 0.0

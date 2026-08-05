@@ -47,20 +47,22 @@ class Blocking:
 
     task_id: int
     node_id: int
-    spin: float = 0.0        # waiting that burns the core (MSRP)
-    suspend: float = 0.0     # waiting that releases the core (POMIP)
+    spin: float = 0.0        # remote waiting that burns the core (MSRP)
     overhead: float = 0.0    # context switches (POMIP only)
 
     @property
     def total(self) -> float:
-        return self.spin + self.suspend + self.overhead
+        return self.spin + self.overhead
 
     @property
     def on_core(self) -> float:
         """The part that occupies the core, so it inflates its load.
 
-        Spinning holds the core; suspending gives it up. The context
-        switches are paid on the core either way.
+        Spinning holds the core; suspension gives it up, which is why it
+        never appears here. Context switches are paid either way.
+
+        Arrival blocking is not here because it is charged once per job,
+        not once per node -- see ``local_blocking``.
         """
         return self.spin + self.overhead
 
@@ -70,7 +72,7 @@ class TaskBlocking:
     """Task-level blocking, which is the level POMIP is defined at."""
 
     task_id: int
-    po_blocking: float = 0.0        # sum over resources of max(F^I + F^O)
+    blocking: float = 0.0           # everything the task waits for
     response_time: float = 0.0      # R_i from equation (11)
     num_cores: int = 1              # m_i, the cluster OC-HEFT gave the task
     per_resource: Dict[int, float] = field(default_factory=dict)
@@ -159,6 +161,44 @@ class ResourceAnalysis:
         return sum(length for core_id, length in per_core.items()
                    if core_id != node.core_id)
 
+    def local_blocking(self, task: Task, core_id: int) -> float:
+        """Blocking by another task already spinning on this core.
+
+        Spinning under MSRP is non-preemptable, so a job arriving on a
+        core can be held up by a job of *another* task already inside a
+        critical section there. Only the longest such section matters.
+
+        Charged **once per job per core the task uses**, not once per
+        node: it is an arrival effect, and a node dispatch is not a new
+        arrival. Charging it per node made a core hosting 49 nodes pay it
+        49 times and pushed utilization from 0.9 to 1.54 on its own.
+
+        Without this term MSRP looks free whenever a core hosts several
+        tasks, which is exactly what the mapping tends to produce.
+        """
+        longest = 0.0
+        for other in self.taskset.tasks:
+            if other.id == task.id:
+                continue
+            for candidate in other.real_nodes():
+                if candidate.core_id != core_id:
+                    continue
+                for segment in candidate.segments:
+                    if segment.is_critical:
+                        longest = max(longest, segment.length)
+        return longest
+
+    def cores_used_by(self, task: Task) -> set:
+        """The distinct cores a task's nodes were mapped onto."""
+        return {n.core_id for n in task.real_nodes() if n.core_id is not None}
+
+    def task_local_blocking(self, task: Task) -> float:
+        """Local blocking over every core the task actually uses."""
+        if self.protocol is not Protocol.MSRP:
+            return 0.0
+        return sum(self.local_blocking(task, core_id)
+                   for core_id in self.cores_used_by(task))
+
     # -- POMIP: suspending ------------------------------------------------
     def intra_task_blocking(self, task: Task, resource_id: int,
                             on_path: int) -> float:
@@ -208,21 +248,40 @@ class ResourceAnalysis:
                     for x in range(total + 1)), default=0.0)
 
     def response_time(self, task: Task) -> TaskBlocking:
-        """R_i from equation (11), with the POMIP blocking bounds.
+        """R_i from equation (11), under either protocol.
 
-            R_i <= [ C_i + (m_i - 1) L_i + sum_q max(F^I + F^O) ] / m_i
+            R_i <= [ C_i + (m_i - 1) L_i + blocking ] / m_i
+
+        The shape comes from the paper and is the same for both; only the
+        blocking term differs, which is the point of the comparison:
+
+        * POMIP -- the path-oriented bound, sum over resources of the
+          worst F^I + F^O, plus the context switches every request pays
+        * MSRP  -- the spinning and the local blocking its own nodes
+          suffer, which is the equivalent quantity for a spin lock
+
+        Both protocols are judged by this same test. Running it for POMIP
+        alone would fail it for a reason MSRP is never asked about.
         """
         m_i = self.cores_of(task)
         result = TaskBlocking(task_id=task.id, num_cores=m_i)
 
-        for resource_id in task.resources_used:
-            blocking = self.po_blocking(task, resource_id)
-            result.per_resource[resource_id] = blocking
-            result.po_blocking += blocking
+        if self.protocol is Protocol.POMIP:
+            for resource_id in task.resources_used:
+                blocking = self.po_blocking(task, resource_id)
+                result.per_resource[resource_id] = blocking
+                result.blocking += blocking
+            # the switches are real work and belong in the bound too
+            result.blocking += sum(self.for_node(task.id, n.id).overhead
+                                   for n in task.real_nodes())
+        else:
+            result.blocking = (sum(self.for_node(task.id, n.id).total
+                                   for n in task.real_nodes())
+                               + self.task_local_blocking(task))
 
         work = (task.wcet
                 + (m_i - 1) * task.critical_path_length
-                + result.po_blocking)
+                + result.blocking)
         result.response_time = work / m_i
         return result
 
@@ -244,18 +303,14 @@ class ResourceAnalysis:
         return result
 
     def run(self) -> Dict[tuple, Blocking]:
-        """Analyse every mapped node, and every task under POMIP."""
+        """Analyse every mapped node, then every task."""
         for task in self.taskset.tasks:
             for node in task.real_nodes():
                 self.blocking[(task.id, node.id)] = self.analyse_node(task, node)
 
-            if self.protocol is Protocol.POMIP:
-                blocking = self.response_time(task)
-                self.task_blocking[task.id] = blocking
-                # the suspension is real waiting, even if it frees the core
-                for node in task.real_nodes():
-                    self.blocking[(task.id, node.id)].suspend = \
-                        blocking.po_blocking / max(len(task.real_nodes()), 1)
+        # the task-level bound reads the node results, so it comes second
+        for task in self.taskset.tasks:
+            self.task_blocking[task.id] = self.response_time(task)
 
         return self.blocking
 
@@ -274,12 +329,18 @@ class ResourceAnalysis:
         core = self.taskset.core(core_id)
         total = 0.0
         for task in self.taskset.tasks:
-            for node in task.real_nodes():
-                if node.core_id != core_id:
-                    continue
+            here = [n for n in task.real_nodes() if n.core_id == core_id]
+            if not here:
+                continue
+
+            for node in here:
                 inflated = (core.exec_time(node.wcet)
                             + self.for_node(task.id, node.id).on_core)
                 total += inflated / task.period
+
+            # arrival blocking is per job on this core, not per node
+            total += self.local_blocking(task, core_id) / task.period
+
         return total
 
     @property
@@ -287,12 +348,18 @@ class ResourceAnalysis:
         return sum(b.spin for b in self.blocking.values())
 
     @property
-    def total_suspend(self) -> float:
-        return sum(b.suspend for b in self.blocking.values())
+    def total_local(self) -> float:
+        """Arrival blocking, which lives at task level, not node level."""
+        return sum(self.task_local_blocking(t) for t in self.taskset.tasks)
 
     @property
     def total_overhead(self) -> float:
         return sum(b.overhead for b in self.blocking.values())
+
+    @property
+    def total_blocking(self) -> float:
+        """Everything every task waits for, at the level it is defined."""
+        return sum(b.blocking for b in self.task_blocking.values())
 
 
 def analyse(taskset: TaskSet, mapper, protocol: Protocol,
