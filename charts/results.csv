@@ -1,106 +1,123 @@
-chart,parameter,value,scenario,schedulability,qos,samples
-"Schedulability vs normalized utilization",u_norm,0.1,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs normalized utilization",u_norm,0.3,"local only (no offload)",0.0000,0.1050,100
-"Schedulability vs normalized utilization",u_norm,0.5,"local only (no offload)",0.0000,0.0225,100
-"Schedulability vs normalized utilization",u_norm,0.7,"local only (no offload)",0.0000,0.0075,100
-"Schedulability vs normalized utilization",u_norm,1.0,"local only (no offload)",0.0000,0.0075,100
-"Schedulability vs normalized utilization",u_norm,0.1,"spin (MSRP)",0.9500,0.9500,100
-"Schedulability vs normalized utilization",u_norm,0.3,"spin (MSRP)",0.0000,0.1575,100
-"Schedulability vs normalized utilization",u_norm,0.5,"spin (MSRP)",0.0000,0.0775,100
-"Schedulability vs normalized utilization",u_norm,0.7,"spin (MSRP)",0.0000,0.0425,100
-"Schedulability vs normalized utilization",u_norm,1.0,"spin (MSRP)",0.0000,0.0300,100
-"Schedulability vs normalized utilization",u_norm,0.1,"suspension (POMIP)",0.8600,0.9625,100
-"Schedulability vs normalized utilization",u_norm,0.3,"suspension (POMIP)",0.0000,0.1000,100
-"Schedulability vs normalized utilization",u_norm,0.5,"suspension (POMIP)",0.0000,0.0200,100
-"Schedulability vs normalized utilization",u_norm,0.7,"suspension (POMIP)",0.0000,0.0000,100
-"Schedulability vs normalized utilization",u_norm,1.0,"suspension (POMIP)",0.0000,0.0000,100
-"Schedulability vs requests per resource",accesses_per_resource,10,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs requests per resource",accesses_per_resource,30,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs requests per resource",accesses_per_resource,50,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs requests per resource",accesses_per_resource,80,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs requests per resource",accesses_per_resource,150,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs requests per resource",accesses_per_resource,10,"spin (MSRP)",1.0000,1.0000,100
-"Schedulability vs requests per resource",accesses_per_resource,30,"spin (MSRP)",0.9500,0.9500,100
-"Schedulability vs requests per resource",accesses_per_resource,50,"spin (MSRP)",0.8800,0.8800,100
-"Schedulability vs requests per resource",accesses_per_resource,80,"spin (MSRP)",0.8600,0.8600,100
-"Schedulability vs requests per resource",accesses_per_resource,150,"spin (MSRP)",0.8400,0.8400,100
-"Schedulability vs requests per resource",accesses_per_resource,10,"suspension (POMIP)",1.0000,1.0000,100
-"Schedulability vs requests per resource",accesses_per_resource,30,"suspension (POMIP)",0.8600,0.9625,100
-"Schedulability vs requests per resource",accesses_per_resource,50,"suspension (POMIP)",0.4400,0.8075,100
-"Schedulability vs requests per resource",accesses_per_resource,80,"suspension (POMIP)",0.1300,0.6000,100
-"Schedulability vs requests per resource",accesses_per_resource,150,"suspension (POMIP)",0.0300,0.2050,100
-"Schedulability vs number of resource types",num_resources,2,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs number of resource types",num_resources,4,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs number of resource types",num_resources,6,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs number of resource types",num_resources,8,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs number of resource types",num_resources,2,"spin (MSRP)",0.9500,0.9500,100
-"Schedulability vs number of resource types",num_resources,4,"spin (MSRP)",0.9200,0.9200,100
-"Schedulability vs number of resource types",num_resources,6,"spin (MSRP)",0.9400,0.9400,100
-"Schedulability vs number of resource types",num_resources,8,"spin (MSRP)",0.9200,0.9200,100
-"Schedulability vs number of resource types",num_resources,2,"suspension (POMIP)",0.8600,0.9625,100
-"Schedulability vs number of resource types",num_resources,4,"suspension (POMIP)",0.5800,0.8725,100
-"Schedulability vs number of resource types",num_resources,6,"suspension (POMIP)",0.4700,0.8025,100
-"Schedulability vs number of resource types",num_resources,8,"suspension (POMIP)",0.3400,0.6650,100
-"Schedulability vs critical-section share",csp,0.1,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs critical-section share",csp,0.25,"local only (no offload)",0.9400,0.9400,100
-"Schedulability vs critical-section share",csp,0.5,"local only (no offload)",0.6400,0.6400,100
-"Schedulability vs critical-section share",csp,0.75,"local only (no offload)",0.3000,0.3000,100
-"Schedulability vs critical-section share",csp,1.0,"local only (no offload)",0.1000,0.1000,100
-"Schedulability vs critical-section share",csp,0.1,"spin (MSRP)",0.9500,0.9500,100
-"Schedulability vs critical-section share",csp,0.25,"spin (MSRP)",0.8200,0.8200,100
-"Schedulability vs critical-section share",csp,0.5,"spin (MSRP)",0.5300,0.5300,100
-"Schedulability vs critical-section share",csp,0.75,"spin (MSRP)",0.2500,0.2500,100
-"Schedulability vs critical-section share",csp,1.0,"spin (MSRP)",0.0800,0.0800,100
-"Schedulability vs critical-section share",csp,0.1,"suspension (POMIP)",0.8600,0.9625,100
-"Schedulability vs critical-section share",csp,0.25,"suspension (POMIP)",0.1000,0.5100,100
-"Schedulability vs critical-section share",csp,0.5,"suspension (POMIP)",0.0000,0.0475,100
-"Schedulability vs critical-section share",csp,0.75,"suspension (POMIP)",0.0000,0.0000,100
-"Schedulability vs critical-section share",csp,1.0,"suspension (POMIP)",0.0000,0.0000,100
-"Schedulability vs number of tasks",num_tasks,4,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs number of tasks",num_tasks,6,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs number of tasks",num_tasks,8,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs number of tasks",num_tasks,4,"spin (MSRP)",0.9500,0.9500,100
-"Schedulability vs number of tasks",num_tasks,6,"spin (MSRP)",0.9200,0.9200,100
-"Schedulability vs number of tasks",num_tasks,8,"spin (MSRP)",0.9100,0.9100,100
-"Schedulability vs number of tasks",num_tasks,4,"suspension (POMIP)",0.8600,0.9625,100
-"Schedulability vs number of tasks",num_tasks,6,"suspension (POMIP)",0.9800,0.9950,100
-"Schedulability vs number of tasks",num_tasks,8,"suspension (POMIP)",0.9900,0.9900,100
-"Schedulability vs local core count",num_cores,4,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs local core count",num_cores,8,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs local core count",num_cores,16,"local only (no offload)",0.0000,0.0900,100
-"Schedulability vs local core count",num_cores,32,"local only (no offload)",0.0000,0.0700,100
-"Schedulability vs local core count",num_cores,4,"spin (MSRP)",1.0000,1.0000,100
-"Schedulability vs local core count",num_cores,8,"spin (MSRP)",0.9500,0.9500,100
-"Schedulability vs local core count",num_cores,16,"spin (MSRP)",0.0000,0.0875,100
-"Schedulability vs local core count",num_cores,32,"spin (MSRP)",0.0000,0.1200,100
-"Schedulability vs local core count",num_cores,4,"suspension (POMIP)",1.0000,1.0000,100
-"Schedulability vs local core count",num_cores,8,"suspension (POMIP)",0.8600,0.9625,100
-"Schedulability vs local core count",num_cores,16,"suspension (POMIP)",0.0000,0.0775,100
-"Schedulability vs local core count",num_cores,32,"suspension (POMIP)",0.0000,0.0650,100
-"Schedulability vs number of edge servers",num_edge_servers,0,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs number of edge servers",num_edge_servers,1,"local only (no offload)",0.9500,0.9500,100
-"Schedulability vs number of edge servers",num_edge_servers,2,"local only (no offload)",0.9500,0.9500,100
-"Schedulability vs number of edge servers",num_edge_servers,3,"local only (no offload)",0.9500,0.9500,100
-"Schedulability vs number of edge servers",num_edge_servers,4,"local only (no offload)",0.9500,0.9500,100
-"Schedulability vs number of edge servers",num_edge_servers,0,"spin (MSRP)",1.0000,1.0000,100
-"Schedulability vs number of edge servers",num_edge_servers,1,"spin (MSRP)",0.9500,0.9500,100
-"Schedulability vs number of edge servers",num_edge_servers,2,"spin (MSRP)",0.9500,0.9500,100
-"Schedulability vs number of edge servers",num_edge_servers,3,"spin (MSRP)",0.9500,0.9500,100
-"Schedulability vs number of edge servers",num_edge_servers,4,"spin (MSRP)",0.9500,0.9500,100
-"Schedulability vs number of edge servers",num_edge_servers,0,"suspension (POMIP)",0.8600,0.9600,100
-"Schedulability vs number of edge servers",num_edge_servers,1,"suspension (POMIP)",0.8600,0.9625,100
-"Schedulability vs number of edge servers",num_edge_servers,2,"suspension (POMIP)",0.8600,0.9625,100
-"Schedulability vs number of edge servers",num_edge_servers,3,"suspension (POMIP)",0.8600,0.9625,100
-"Schedulability vs number of edge servers",num_edge_servers,4,"suspension (POMIP)",0.8600,0.9625,100
-"Schedulability vs cores per edge server",cores_per_edge_server,8,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs cores per edge server",cores_per_edge_server,16,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs cores per edge server",cores_per_edge_server,32,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs cores per edge server",cores_per_edge_server,64,"local only (no offload)",1.0000,1.0000,100
-"Schedulability vs cores per edge server",cores_per_edge_server,8,"spin (MSRP)",0.9500,0.9500,100
-"Schedulability vs cores per edge server",cores_per_edge_server,16,"spin (MSRP)",0.9500,0.9500,100
-"Schedulability vs cores per edge server",cores_per_edge_server,32,"spin (MSRP)",0.9500,0.9500,100
-"Schedulability vs cores per edge server",cores_per_edge_server,64,"spin (MSRP)",0.9500,0.9500,100
-"Schedulability vs cores per edge server",cores_per_edge_server,8,"suspension (POMIP)",0.8600,0.9625,100
-"Schedulability vs cores per edge server",cores_per_edge_server,16,"suspension (POMIP)",0.8600,0.9625,100
-"Schedulability vs cores per edge server",cores_per_edge_server,32,"suspension (POMIP)",0.8600,0.9625,100
-"Schedulability vs cores per edge server",cores_per_edge_server,64,"suspension (POMIP)",0.8600,0.9625,100
+chart,parameter,value,scenario,schedulability,qos,samples,conditions
+"Schedulability vs normalized utilization",u_norm,0.1,"local, spin (MSRP)",0.9900,0.9900,100,""
+"Schedulability vs normalized utilization",u_norm,0.3,"local, spin (MSRP)",0.0000,0.0125,100,""
+"Schedulability vs normalized utilization",u_norm,0.5,"local, spin (MSRP)",0.0000,0.0000,100,""
+"Schedulability vs normalized utilization",u_norm,0.7,"local, spin (MSRP)",0.0000,0.0000,100,""
+"Schedulability vs normalized utilization",u_norm,1.0,"local, spin (MSRP)",0.0000,0.0000,100,""
+"Schedulability vs normalized utilization",u_norm,0.1,"local, suspension (POMIP)",1.0000,1.0000,100,""
+"Schedulability vs normalized utilization",u_norm,0.3,"local, suspension (POMIP)",0.0100,0.3275,100,""
+"Schedulability vs normalized utilization",u_norm,0.5,"local, suspension (POMIP)",0.0000,0.0400,100,""
+"Schedulability vs normalized utilization",u_norm,0.7,"local, suspension (POMIP)",0.0000,0.0050,100,""
+"Schedulability vs normalized utilization",u_norm,1.0,"local, suspension (POMIP)",0.0000,0.0000,100,""
+"Schedulability vs normalized utilization",u_norm,0.1,"edge, spin (MSRP)",1.0000,1.0000,100,""
+"Schedulability vs normalized utilization",u_norm,0.3,"edge, spin (MSRP)",0.0000,0.0125,100,""
+"Schedulability vs normalized utilization",u_norm,0.5,"edge, spin (MSRP)",0.0000,0.0000,100,""
+"Schedulability vs normalized utilization",u_norm,0.7,"edge, spin (MSRP)",0.0000,0.0000,100,""
+"Schedulability vs normalized utilization",u_norm,1.0,"edge, spin (MSRP)",0.0000,0.0000,100,""
+"Schedulability vs normalized utilization",u_norm,0.1,"edge, suspension (POMIP)",1.0000,1.0000,100,""
+"Schedulability vs normalized utilization",u_norm,0.3,"edge, suspension (POMIP)",0.0100,0.3475,100,""
+"Schedulability vs normalized utilization",u_norm,0.5,"edge, suspension (POMIP)",0.0000,0.0450,100,""
+"Schedulability vs normalized utilization",u_norm,0.7,"edge, suspension (POMIP)",0.0000,0.0000,100,""
+"Schedulability vs normalized utilization",u_norm,1.0,"edge, suspension (POMIP)",0.0000,0.0000,100,""
+"Schedulability vs requests per resource",accesses_per_resource,10,"local, spin (MSRP)",1.0000,1.0000,100,""
+"Schedulability vs requests per resource",accesses_per_resource,30,"local, spin (MSRP)",0.9900,0.9900,100,""
+"Schedulability vs requests per resource",accesses_per_resource,50,"local, spin (MSRP)",0.8700,0.8700,100,""
+"Schedulability vs requests per resource",accesses_per_resource,80,"local, spin (MSRP)",0.6700,0.6750,100,""
+"Schedulability vs requests per resource",accesses_per_resource,150,"local, spin (MSRP)",0.3100,0.3125,100,""
+"Schedulability vs requests per resource",accesses_per_resource,10,"local, suspension (POMIP)",1.0000,1.0000,100,""
+"Schedulability vs requests per resource",accesses_per_resource,30,"local, suspension (POMIP)",1.0000,1.0000,100,""
+"Schedulability vs requests per resource",accesses_per_resource,50,"local, suspension (POMIP)",0.8800,0.9650,100,""
+"Schedulability vs requests per resource",accesses_per_resource,80,"local, suspension (POMIP)",0.6200,0.8750,100,""
+"Schedulability vs requests per resource",accesses_per_resource,150,"local, suspension (POMIP)",0.3000,0.7000,100,""
+"Schedulability vs requests per resource",accesses_per_resource,10,"edge, spin (MSRP)",1.0000,1.0000,100,""
+"Schedulability vs requests per resource",accesses_per_resource,30,"edge, spin (MSRP)",1.0000,1.0000,100,""
+"Schedulability vs requests per resource",accesses_per_resource,50,"edge, spin (MSRP)",0.8600,0.8675,100,""
+"Schedulability vs requests per resource",accesses_per_resource,80,"edge, spin (MSRP)",0.6700,0.6850,100,""
+"Schedulability vs requests per resource",accesses_per_resource,150,"edge, spin (MSRP)",0.3100,0.3125,100,""
+"Schedulability vs requests per resource",accesses_per_resource,10,"edge, suspension (POMIP)",1.0000,1.0000,100,""
+"Schedulability vs requests per resource",accesses_per_resource,30,"edge, suspension (POMIP)",1.0000,1.0000,100,""
+"Schedulability vs requests per resource",accesses_per_resource,50,"edge, suspension (POMIP)",0.8800,0.9650,100,""
+"Schedulability vs requests per resource",accesses_per_resource,80,"edge, suspension (POMIP)",0.6200,0.8775,100,""
+"Schedulability vs requests per resource",accesses_per_resource,150,"edge, suspension (POMIP)",0.3000,0.6975,100,""
+"Schedulability vs number of resource types",num_resources,2,"local, spin (MSRP)",0.1300,0.1425,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of resource types",num_resources,4,"local, spin (MSRP)",0.0600,0.0700,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of resource types",num_resources,6,"local, spin (MSRP)",0.0500,0.0575,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of resource types",num_resources,8,"local, spin (MSRP)",0.1300,0.1350,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of resource types",num_resources,2,"local, suspension (POMIP)",0.1600,0.5900,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of resource types",num_resources,4,"local, suspension (POMIP)",0.0000,0.4150,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of resource types",num_resources,6,"local, suspension (POMIP)",0.0100,0.4250,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of resource types",num_resources,8,"local, suspension (POMIP)",0.0000,0.3825,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of resource types",num_resources,2,"edge, spin (MSRP)",0.1300,0.1425,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of resource types",num_resources,4,"edge, spin (MSRP)",0.0700,0.0775,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of resource types",num_resources,6,"edge, spin (MSRP)",0.0500,0.0575,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of resource types",num_resources,8,"edge, spin (MSRP)",0.1200,0.1300,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of resource types",num_resources,2,"edge, suspension (POMIP)",0.1600,0.5900,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of resource types",num_resources,4,"edge, suspension (POMIP)",0.0000,0.4175,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of resource types",num_resources,6,"edge, suspension (POMIP)",0.0100,0.4225,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of resource types",num_resources,8,"edge, suspension (POMIP)",0.0000,0.3825,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs critical-section share",csp,0.1,"local, spin (MSRP)",0.9900,0.9900,100,""
+"Schedulability vs critical-section share",csp,0.25,"local, spin (MSRP)",0.6200,0.6450,100,""
+"Schedulability vs critical-section share",csp,0.5,"local, spin (MSRP)",0.0200,0.0350,100,""
+"Schedulability vs critical-section share",csp,0.75,"local, spin (MSRP)",0.0000,0.0000,100,""
+"Schedulability vs critical-section share",csp,1.0,"local, spin (MSRP)",0.0000,0.0000,100,""
+"Schedulability vs critical-section share",csp,0.1,"local, suspension (POMIP)",1.0000,1.0000,100,""
+"Schedulability vs critical-section share",csp,0.25,"local, suspension (POMIP)",0.5300,0.8425,100,""
+"Schedulability vs critical-section share",csp,0.5,"local, suspension (POMIP)",0.0200,0.4000,100,""
+"Schedulability vs critical-section share",csp,0.75,"local, suspension (POMIP)",0.0000,0.1450,100,""
+"Schedulability vs critical-section share",csp,1.0,"local, suspension (POMIP)",0.0000,0.0400,100,""
+"Schedulability vs critical-section share",csp,0.1,"edge, spin (MSRP)",1.0000,1.0000,100,""
+"Schedulability vs critical-section share",csp,0.25,"edge, spin (MSRP)",0.6100,0.6400,100,""
+"Schedulability vs critical-section share",csp,0.5,"edge, spin (MSRP)",0.0200,0.0375,100,""
+"Schedulability vs critical-section share",csp,0.75,"edge, spin (MSRP)",0.0000,0.0000,100,""
+"Schedulability vs critical-section share",csp,1.0,"edge, spin (MSRP)",0.0000,0.0000,100,""
+"Schedulability vs critical-section share",csp,0.1,"edge, suspension (POMIP)",1.0000,1.0000,100,""
+"Schedulability vs critical-section share",csp,0.25,"edge, suspension (POMIP)",0.5300,0.8425,100,""
+"Schedulability vs critical-section share",csp,0.5,"edge, suspension (POMIP)",0.0200,0.4000,100,""
+"Schedulability vs critical-section share",csp,0.75,"edge, suspension (POMIP)",0.0000,0.1475,100,""
+"Schedulability vs critical-section share",csp,1.0,"edge, suspension (POMIP)",0.0000,0.0425,100,""
+"Schedulability vs number of tasks",num_tasks,4,"local, spin (MSRP)",0.1300,0.1425,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of tasks",num_tasks,6,"local, spin (MSRP)",0.2200,0.2367,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of tasks",num_tasks,8,"local, spin (MSRP)",0.3100,0.3650,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of tasks",num_tasks,4,"local, suspension (POMIP)",0.1600,0.5900,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of tasks",num_tasks,6,"local, suspension (POMIP)",0.3000,0.7900,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of tasks",num_tasks,8,"local, suspension (POMIP)",0.5300,0.9062,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of tasks",num_tasks,4,"edge, spin (MSRP)",0.1300,0.1425,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of tasks",num_tasks,6,"edge, spin (MSRP)",0.2000,0.2200,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of tasks",num_tasks,8,"edge, spin (MSRP)",0.2800,0.3387,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of tasks",num_tasks,4,"edge, suspension (POMIP)",0.1600,0.5900,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of tasks",num_tasks,6,"edge, suspension (POMIP)",0.3000,0.7883,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs number of tasks",num_tasks,8,"edge, suspension (POMIP)",0.5400,0.9113,100,"accesses_per_resource=50, csp=0.25"
+"Schedulability vs local core count",num_cores,4,"local, spin (MSRP)",1.0000,1.0000,100,""
+"Schedulability vs local core count",num_cores,8,"local, spin (MSRP)",0.9900,0.9900,100,""
+"Schedulability vs local core count",num_cores,16,"local, spin (MSRP)",0.8000,0.8300,100,""
+"Schedulability vs local core count",num_cores,32,"local, spin (MSRP)",0.0500,0.1950,100,""
+"Schedulability vs local core count",num_cores,4,"local, suspension (POMIP)",1.0000,1.0000,100,""
+"Schedulability vs local core count",num_cores,8,"local, suspension (POMIP)",1.0000,1.0000,100,""
+"Schedulability vs local core count",num_cores,16,"local, suspension (POMIP)",0.6400,0.8925,100,""
+"Schedulability vs local core count",num_cores,32,"local, suspension (POMIP)",0.0000,0.2525,100,""
+"Schedulability vs local core count",num_cores,4,"edge, spin (MSRP)",1.0000,1.0000,100,""
+"Schedulability vs local core count",num_cores,8,"edge, spin (MSRP)",1.0000,1.0000,100,""
+"Schedulability vs local core count",num_cores,16,"edge, spin (MSRP)",0.8400,0.8625,100,""
+"Schedulability vs local core count",num_cores,32,"edge, spin (MSRP)",0.0600,0.2050,100,""
+"Schedulability vs local core count",num_cores,4,"edge, suspension (POMIP)",1.0000,1.0000,100,""
+"Schedulability vs local core count",num_cores,8,"edge, suspension (POMIP)",1.0000,1.0000,100,""
+"Schedulability vs local core count",num_cores,16,"edge, suspension (POMIP)",0.6400,0.8925,100,""
+"Schedulability vs local core count",num_cores,32,"edge, suspension (POMIP)",0.0000,0.2550,100,""
+"Schedulability vs number of edge servers",num_edge_servers,0,"edge, spin (MSRP)",0.1800,0.1925,100,"accesses_per_resource=30, ccr=0.05, csp=0.15, u_norm=0.2"
+"Schedulability vs number of edge servers",num_edge_servers,1,"edge, spin (MSRP)",0.7200,0.7875,100,"accesses_per_resource=30, ccr=0.05, csp=0.15, u_norm=0.2"
+"Schedulability vs number of edge servers",num_edge_servers,2,"edge, spin (MSRP)",0.7500,0.8175,100,"accesses_per_resource=30, ccr=0.05, csp=0.15, u_norm=0.2"
+"Schedulability vs number of edge servers",num_edge_servers,3,"edge, spin (MSRP)",0.7500,0.8175,100,"accesses_per_resource=30, ccr=0.05, csp=0.15, u_norm=0.2"
+"Schedulability vs number of edge servers",num_edge_servers,4,"edge, spin (MSRP)",0.7500,0.8175,100,"accesses_per_resource=30, ccr=0.05, csp=0.15, u_norm=0.2"
+"Schedulability vs number of edge servers",num_edge_servers,0,"edge, suspension (POMIP)",0.2300,0.6750,100,"accesses_per_resource=30, ccr=0.05, csp=0.15, u_norm=0.2"
+"Schedulability vs number of edge servers",num_edge_servers,1,"edge, suspension (POMIP)",0.2700,0.7275,100,"accesses_per_resource=30, ccr=0.05, csp=0.15, u_norm=0.2"
+"Schedulability vs number of edge servers",num_edge_servers,2,"edge, suspension (POMIP)",0.2600,0.7250,100,"accesses_per_resource=30, ccr=0.05, csp=0.15, u_norm=0.2"
+"Schedulability vs number of edge servers",num_edge_servers,3,"edge, suspension (POMIP)",0.2600,0.7250,100,"accesses_per_resource=30, ccr=0.05, csp=0.15, u_norm=0.2"
+"Schedulability vs number of edge servers",num_edge_servers,4,"edge, suspension (POMIP)",0.2600,0.7250,100,"accesses_per_resource=30, ccr=0.05, csp=0.15, u_norm=0.2"
+"Schedulability vs cores per edge server",cores_per_edge_server,8,"edge, spin (MSRP)",0.2100,0.3400,100,"accesses_per_resource=30, ccr=0.05, csp=0.15, num_edge_servers=1, u_norm=0.3"
+"Schedulability vs cores per edge server",cores_per_edge_server,16,"edge, spin (MSRP)",0.2700,0.4150,100,"accesses_per_resource=30, ccr=0.05, csp=0.15, num_edge_servers=1, u_norm=0.3"
+"Schedulability vs cores per edge server",cores_per_edge_server,32,"edge, spin (MSRP)",0.2700,0.4150,100,"accesses_per_resource=30, ccr=0.05, csp=0.15, num_edge_servers=1, u_norm=0.3"
+"Schedulability vs cores per edge server",cores_per_edge_server,64,"edge, spin (MSRP)",0.2700,0.4150,100,"accesses_per_resource=30, ccr=0.05, csp=0.15, num_edge_servers=1, u_norm=0.3"
+"Schedulability vs cores per edge server",cores_per_edge_server,8,"edge, suspension (POMIP)",0.0100,0.3625,100,"accesses_per_resource=30, ccr=0.05, csp=0.15, num_edge_servers=1, u_norm=0.3"
+"Schedulability vs cores per edge server",cores_per_edge_server,16,"edge, suspension (POMIP)",0.0100,0.3650,100,"accesses_per_resource=30, ccr=0.05, csp=0.15, num_edge_servers=1, u_norm=0.3"
+"Schedulability vs cores per edge server",cores_per_edge_server,32,"edge, suspension (POMIP)",0.0100,0.3650,100,"accesses_per_resource=30, ccr=0.05, csp=0.15, num_edge_servers=1, u_norm=0.3"
+"Schedulability vs cores per edge server",cores_per_edge_server,64,"edge, suspension (POMIP)",0.0100,0.3650,100,"accesses_per_resource=30, ccr=0.05, csp=0.15, num_edge_servers=1, u_norm=0.3"

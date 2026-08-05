@@ -12,11 +12,15 @@ import matplotlib
 matplotlib.use("Agg")           # write files, never open a window
 import matplotlib.pyplot as plt
 
+# Colour says which protocol, line style says which platform, so the two
+# comparisons can be read off the same chart independently.
 STYLES = {
-    "local only (no offload)": dict(color="#888888", marker="s", linestyle="--"),
-    "spin (MSRP)":             dict(color="#1f77b4", marker="o"),
-    "suspension (POMIP)":      dict(color="#d62728", marker="^"),
-    "adaptive":                dict(color="#2ca02c", marker="d"),
+    "local, spin (MSRP)":       dict(color="#1f77b4", marker="o", linestyle="--"),
+    "local, suspension (POMIP)": dict(color="#d62728", marker="^", linestyle="--"),
+    "edge, spin (MSRP)":        dict(color="#1f77b4", marker="o"),
+    "edge, suspension (POMIP)": dict(color="#d62728", marker="^"),
+    "local, adaptive":          dict(color="#2ca02c", marker="d", linestyle="--"),
+    "edge, adaptive":           dict(color="#2ca02c", marker="d"),
 }
 
 
@@ -43,7 +47,10 @@ def draw_sweep(title: str, block: Dict, path: str) -> str:
     _panel(right, sweep, lines, "quality_of_service", "quality of service")
 
     left.legend(fontsize=8, loc="best")
-    figure.suptitle(title)
+    # the chart must say what it was measured under, or the reader cannot
+    # tell why two charts disagree about the same scenario
+    figure.suptitle(title + (f"\n({sweep.conditions})" if sweep.conditions else ""),
+                    fontsize=11)
     figure.tight_layout()
     figure.savefig(path, dpi=130)
     plt.close(figure)

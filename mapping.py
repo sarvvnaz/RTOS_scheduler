@@ -144,18 +144,34 @@ class Mapper:
         """
         return core.exec_time(node.wcet)
 
+    def pays_comm(self, core_a: int, core_b: int) -> bool:
+        """Is communication actually paid between these two cores?
+
+        The definition is explicit: the cost applies only when the two
+        nodes sit on processors **of two different servers**. So two cores
+        of the local machine talk for free, as do two cores of the same
+        edge server; only crossing a machine boundary costs anything.
+
+        Charging it between any two different cores -- which is what this
+        used to do -- makes spreading inside one machine look as expensive
+        as offloading, and the mapper answers by piling every node onto a
+        single core.
+        """
+        if core_a == core_b:
+            return False
+        return (self.taskset.core(core_a).server_id
+                != self.taskset.core(core_b).server_id)
+
     def comm_cost(self, task: Task, node: Node, core: Core) -> float:
         """What this placement would cost in communication.
 
-        Only edges coming from already-placed predecessors count -- the
-        successors have no core yet. An edge is free when both ends sit on
-        the same core, so this term is what pulls a chain of dependent
-        nodes together onto one core.
+        Only edges from already-placed predecessors count -- the
+        successors have no core yet.
         """
         total = 0.0
         for pred in task.graph.predecessors(node.id):
             pred_core = task.nodes[pred].core_id
-            if pred_core is not None and pred_core != core.id:
+            if pred_core is not None and self.pays_comm(pred_core, core.id):
                 total += task.comm_cost(pred, node.id)
         return total
 
@@ -202,7 +218,7 @@ class Mapper:
             if pred_core is None:
                 continue
             arrival = self.finish[(task.id, pred)]
-            if pred_core != core.id:
+            if self.pays_comm(pred_core, core.id):
                 arrival += task.comm_cost(pred, node.id)
             ready = max(ready, arrival)
 
