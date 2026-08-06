@@ -39,12 +39,15 @@ class Result:
     overloaded: List[int] = field(default_factory=list)     # core ids over 1
     missed: List[int] = field(default_factory=list)         # task ids over D
     unplaced_nodes: int = 0
+    allocation: object = None                     # federated.Allocation, if any
 
     @property
     def reason(self) -> str:
         """One line saying what went wrong, for the report."""
         if self.schedulable:
             return "schedulable"
+        if self.allocation is not None and not self.allocation.feasible:
+            return self.allocation.reason
         if not self.mapped:
             return f"{self.unplaced_nodes} node(s) could not be mapped"
         parts = []
@@ -70,12 +73,14 @@ class Result:
     _qos: float = 0.0
 
 
-def test(taskset: TaskSet, mapper, analysis: ResourceAnalysis) -> Result:
+def test(taskset: TaskSet, mapper, analysis: ResourceAnalysis,
+         allocation=None) -> Result:
     """Run the partitioned-EDF test over a mapped and analysed task set."""
     result = Result(schedulable=False,
                     mapped=mapper.succeeded,
                     protocol=analysis.protocol,
-                    unplaced_nodes=len(mapper.unplaced))
+                    unplaced_nodes=len(mapper.unplaced),
+                    allocation=allocation)
 
     # 1. per-core EDF utilization, blocking included
     for core in taskset.cores:
@@ -118,12 +123,28 @@ def evaluate(cfg, protocol: Protocol) -> Result:
 
     This is the unit the experiments repeat: everything from a config to a
     yes/no answer.
+
+    With ``cfg.federated`` the tasks are split into heavy and light first
+    and each heavy task is given its own cluster; OC-HEFT then maps inside
+    those clusters. An allocation that cannot be made at all is already a
+    negative answer -- there are not enough cores for the heavy tasks --
+    so there is nothing left to map.
     """
+    from federated import solve
     from generator import generate_taskset
     from mapping import map_taskset
     from protocols import analyse
 
     taskset = generate_taskset(cfg)
+
+    if cfg.federated:
+        allocation, mapper, analysis = solve(taskset, cfg, protocol)
+        if mapper is None or not allocation.feasible:
+            return Result(schedulable=False, mapped=False, protocol=protocol,
+                          allocation=allocation,
+                          unplaced_nodes=taskset.total_nodes)
+        return test(taskset, mapper, analysis, allocation)
+
     mapper = map_taskset(taskset, cfg)
     analysis = analyse(taskset, mapper, protocol, cfg.context_switch)
     return test(taskset, mapper, analysis)

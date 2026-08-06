@@ -149,6 +149,32 @@ def show_ranks(task: Task, limit: int = 12) -> str:
     return "\n".join(lines)
 
 
+def show_allocation(taskset: TaskSet, allocation) -> str:
+    """The federated split: which task is heavy, and what it owns."""
+    lines = [THIN, "federated allocation"]
+
+    for task in taskset.tasks:
+        heavy = task.id in allocation.clusters
+        if heavy:
+            cores = allocation.clusters[task.id]
+            names = ", ".join(taskset.core(c).name for c in cores[:6])
+            if len(cores) > 6:
+                names += f", ... ({len(cores)} total)"
+            lines.append(f"  task {task.id}  HEAVY  u={task.utilization:5.2f}  "
+                         f"m_i={len(cores)}  cluster: {names}")
+        else:
+            lines.append(f"  task {task.id}  light  u={task.utilization:5.2f}  "
+                         f"shares the pool")
+
+    lines.append(f"  shared pool: {len(allocation.shared)} core(s) for "
+                 f"{allocation.num_light} light task(s)")
+    lines.append(f"  cores used: {allocation.cores_used} of {len(taskset.cores)}")
+
+    if not allocation.feasible:
+        lines.append(f"  NOT FEASIBLE: {allocation.reason}")
+    return "\n".join(lines)
+
+
 def show_mapping(taskset: TaskSet, mapper, limit: int = 10) -> str:
     """Where OC-HEFT put every node, and what it cost.
 

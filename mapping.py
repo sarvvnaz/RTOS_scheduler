@@ -122,9 +122,10 @@ class Mapper:
     * ``demand``      -- time spent holding each resource, for Usage_j(r)
     """
 
-    def __init__(self, taskset: TaskSet, cfg: Config):
+    def __init__(self, taskset: TaskSet, cfg: Config, allocation=None):
         self.taskset = taskset
         self.cfg = cfg
+        self.allocation = allocation      # federated clusters, or None
         self.w1, self.w2, self.w3 = cfg.cost_weights
 
         self.available: Dict[int, float] = {c.id: 0.0 for c in taskset.cores}
@@ -244,12 +245,25 @@ class Mapper:
         return None
 
     # -- the decision ----------------------------------------------------
+    def candidates(self, task: Task) -> List[Core]:
+        """The cores this task is allowed onto.
+
+        Without a federated allocation every core is fair game. With one,
+        a heavy task sees only its own dedicated cluster and the light
+        tasks see only the cores left over -- which is what makes the
+        cluster dedicated in the first place.
+        """
+        if self.allocation is None:
+            return self.taskset.cores
+        allowed = set(self.allocation.cores_for(task))
+        return [c for c in self.taskset.cores if c.id in allowed]
+
     def place(self, task: Task, node: Node) -> Placement:
         """Give one node the cheapest core that satisfies both conditions."""
         result = Placement(task_id=task.id, node_id=node.id, core_id=None)
         best = None
 
-        for core in self.taskset.cores:
+        for core in self.candidates(task):
             reason = self.rejection_reason(task, node, core)
             if reason is not None:
                 result.rejected[core.id] = reason
@@ -289,6 +303,21 @@ class Mapper:
             self.demand[core.id][resource.id] += \
                 releases * node.demand(resource.id)
 
+    def reset(self) -> None:
+        """Undo any earlier mapping of this task set.
+
+        The federated loop maps the same task set several times, once per
+        cluster size it tries. Without this the second round would find
+        nodes still carrying a core from the first, and cores still
+        carrying their utilization.
+        """
+        for task in self.taskset.tasks:
+            for node in task.nodes.values():
+                node.core_id = None
+        for core in self.taskset.cores:
+            core.assigned_nodes = []
+            core.utilization = 0.0
+
     def run(self) -> List[Placement]:
         """Map every node of every task.
 
@@ -303,6 +332,8 @@ class Mapper:
         being handed more work than it can carry across tasks is the
         utilization constraint, not this timeline.
         """
+        self.reset()
+
         for task in self.taskset.tasks:
             self.available = {c.id: 0.0 for c in self.taskset.cores}
             for node_id in placement_order(task):
@@ -323,8 +354,12 @@ class Mapper:
         return not self.unplaced
 
 
-def map_taskset(taskset: TaskSet, cfg: Config) -> Mapper:
-    """Run OC-HEFT over a whole task set."""
-    mapper = Mapper(taskset, cfg)
+def map_taskset(taskset: TaskSet, cfg: Config, allocation=None) -> Mapper:
+    """Run OC-HEFT over a whole task set.
+
+    Pass a ``federated.Allocation`` to keep every task inside its own
+    cluster; leave it out to let any task use any core.
+    """
+    mapper = Mapper(taskset, cfg, allocation)
     mapper.run()
     return mapper

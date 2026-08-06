@@ -35,7 +35,7 @@ class Config:
     u_norm: float = 0.5               # utilization per core, 0.1 .. 1
 
     # tasks
-    num_tasks: int = 4                # n
+    num_tasks: int = 100                # n
     nodes_per_task: tuple = (20, 50)  # |V_i|
     edge_prob: float = 0.1            # p of the Erdos-Renyi graph
     periods: tuple = (2000, 4000, 6000)   # T_i is picked from this list
@@ -47,6 +47,11 @@ class Config:
     # CCR * C_i and is usually far larger than Exec -- so these weights are
     # what balances them.
     cost_weights: tuple = (1.0, 1.0, 1.0)   # w1, w2, w3
+
+    # federated scheduling: heavy tasks (u > 1) get their own dedicated
+    # cluster of cores, light tasks share what is left. Turning this off
+    # lets every task use every core, which is plain partitioning.
+    federated: bool = True
 
     # protocol overhead: one context switch, paid twice per suspension
     context_switch: float = 1.0       # only LPP-P pays this

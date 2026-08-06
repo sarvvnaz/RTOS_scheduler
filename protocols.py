@@ -100,16 +100,42 @@ class ResourceAnalysis:
         self.context_switch = context_switch
         self.blocking: Dict[tuple, Blocking] = {}
         self.task_blocking: Dict[int, TaskBlocking] = {}
+        self._holders: Dict[int, Dict[int, float]] = {}   # cache, see holders()
 
     # -- quantities the paper is written in ------------------------------
     def cores_of(self, task: Task) -> int:
-        """m_i: how many distinct cores this task's nodes landed on.
+        """m_i: the size of the task's cluster.
 
-        The paper's federated model hands a task m_i dedicated processors;
-        here OC-HEFT decides it instead.
+        Under a federated allocation this is exactly the paper's m_i --
+        cores the task owns and nobody else may touch -- so the response
+        time bound is being used in the setting it was proved for.
+
+        Without an allocation there is no cluster, so we fall back to the
+        number of distinct cores the mapping happened to use. That reading
+        is weaker: those cores are shared with other tasks, so dividing by
+        it credits parallelism the task does not exclusively have.
         """
+        allocation = getattr(self.mapper, "allocation", None)
+        if allocation is not None and task.id in allocation.clusters:
+            return len(allocation.clusters[task.id])
+
+        # A light task owns nothing: it shares the leftover pool with the
+        # other light tasks. Its m_i is what the mapping actually used, not
+        # the size of that pool -- dividing by the whole pool would credit
+        # it with every core it merely had access to.
         cores = {n.core_id for n in task.real_nodes() if n.core_id is not None}
         return max(len(cores), 1)
+
+    def cluster_speed(self, task: Task) -> float:
+        """How fast the cores this task runs on are.
+
+        C_i and L_i are stated at speed 1.0, but a task whose cluster is
+        made of edge cores really does finish that work twice as fast.
+        The slowest core in the cluster is the safe one to use.
+        """
+        cores = [self.taskset.core(n.core_id) for n in task.real_nodes()
+                 if n.core_id is not None]
+        return min((c.speed for c in cores), default=1.0)
 
     def max_cs(self, task: Task, resource_id: int) -> float:
         """L_{i,q}: the longest single critical section for this resource."""
@@ -139,7 +165,14 @@ class ResourceAnalysis:
 
         A core runs one node at a time, so a waiting node meets at most
         one holder per core -- the longest is the worst case.
+
+        Cached: the mapping does not change while an analysis runs, and
+        this is asked once per request, which is often thousands of times.
         """
+        cached = self._holders.get(resource_id)
+        if cached is not None:
+            return cached
+
         longest: Dict[int, float] = {}
         for task in self.taskset.tasks:
             for node in task.real_nodes():
@@ -149,6 +182,8 @@ class ResourceAnalysis:
                     if segment.is_critical and segment.resource_id == resource_id:
                         current = longest.get(node.core_id, 0.0)
                         longest[node.core_id] = max(current, segment.length)
+
+        self._holders[resource_id] = longest
         return longest
 
     def spin_delay(self, node: Node, resource_id: int) -> float:
@@ -238,14 +273,25 @@ class ResourceAnalysis:
     def po_blocking(self, task: Task, resource_id: int) -> float:
         """The worst F^I + F^O over every possible N^lambda_{i,q}.
 
-        Algorithm 1 of the paper enumerates this count from 0 up to the
-        task's total number of requests, which is just a loop -- no need
-        to enumerate the paths themselves.
+        Algorithm 1 enumerates this count from 0 up to the task's total
+        number of requests, but only two of those values can ever win:
+
+        * F^I is ``(N - x)(m-1)L``, which *decreases* in x, so among all
+          x >= 1 the largest is x = 1
+        * F^O depends on x only through ``min(x, 1)``, so it is constant
+          for every x >= 1
+
+        That leaves x = 0 and x = 1. Checking those two is exactly the
+        same answer as the full sweep, and does not get slower when a
+        resource is requested 150 times.
         """
         total = self.num_requests(task, resource_id)
-        return max((self.intra_task_blocking(task, resource_id, x)
-                    + self.inter_task_blocking(task, resource_id, x)
-                    for x in range(total + 1)), default=0.0)
+        if total <= 0:
+            return 0.0
+
+        return max(self.intra_task_blocking(task, resource_id, x)
+                   + self.inter_task_blocking(task, resource_id, x)
+                   for x in (0, 1))
 
     def response_time(self, task: Task) -> TaskBlocking:
         """R_i from equation (11), under either protocol.
@@ -279,8 +325,12 @@ class ResourceAnalysis:
                                    for n in task.real_nodes())
                                + self.task_local_blocking(task))
 
-        work = (task.wcet
-                + (m_i - 1) * task.critical_path_length
+        # C_i and L_i are quoted at speed 1.0; the cluster may run faster.
+        # The blocking term is left unscaled: it is caused by other tasks
+        # on their own cores, so this task's speed does not shorten it.
+        speed = self.cluster_speed(task)
+        work = (task.wcet / speed
+                + (m_i - 1) * task.critical_path_length / speed
                 + result.blocking)
         result.response_time = work / m_i
         return result

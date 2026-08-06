@@ -8,7 +8,8 @@
 import argparse
 
 from config import Config
-from display import show_mapping, show_ranks, show_summary, show_taskset
+from display import (show_allocation, show_mapping, show_ranks, show_summary,
+                     show_taskset)
 from generator import generate_taskset
 
 
@@ -69,6 +70,9 @@ def main():
                    help="show the upward rank of each node (OC-HEFT step 1)")
     p.add_argument("--map", action="store_true",
                    help="run OC-HEFT and show where each node was placed")
+    p.add_argument("--no-federated", action="store_true",
+                   help="let every task use every core, instead of giving "
+                        "each heavy task its own dedicated cluster")
     p.add_argument("--experiments", action="store_true",
                    help="run every sweep and draw the charts (the final output)")
     p.add_argument("--count", type=int, default=100,
@@ -83,7 +87,8 @@ def main():
                  csp=args.csp, nodes_per_task=tuple(args.nodes),
                  num_edge_servers=args.edge_servers,
                  cores_per_edge_server=args.edge_cores,
-                 edge_speed=args.edge_speed, ccr=args.ccr)
+                 edge_speed=args.edge_speed, ccr=args.ccr,
+                 federated=not args.no_federated)
 
     if args.experiments:
         run_experiments(cfg, args.count, args.charts_dir)
@@ -103,7 +108,16 @@ def main():
 
     if args.map:
         from mapping import map_taskset
-        print(show_mapping(taskset, map_taskset(taskset, cfg)))
+
+        allocation = None
+        if cfg.federated:
+            from federated import allocate
+            allocation = allocate(taskset)
+            print(show_allocation(taskset, allocation))
+            if not allocation.feasible:
+                return
+
+        print(show_mapping(taskset, map_taskset(taskset, cfg, allocation)))
 
 
 if __name__ == "__main__":
