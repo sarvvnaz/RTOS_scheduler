@@ -147,7 +147,16 @@ class ResourceAnalysis:
         for task_id, cores in allocation.clusters.items():
             if core_id in cores:
                 return ("cluster", task_id)
-        return ("shared", 0)
+
+        # A core in the leftover pool is a cluster of its own. The paper
+        # schedules light tasks as sequential tasks, one processor each,
+        # so their "cluster" is a single core -- which is exactly why it
+        # says H2LP reduces to MSRP for light tasks.
+        #
+        # Treating the whole pool as one cluster instead makes every
+        # light task look like it shares a token with all the others, and
+        # the spin bound collapses to zero.
+        return ("core", core_id)
 
     def h2lp_spin_delay(self, node: Node, resource_id: int) -> float:
         """Worst-case spin for one request under H2LP.
