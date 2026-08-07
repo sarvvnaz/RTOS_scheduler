@@ -67,9 +67,15 @@ class Allocation:
         return sum(len(c) for c in self.clusters.values()) + len(self.shared)
 
 
-def is_heavy(task: Task) -> bool:
-    """A task no single core could ever finish in time."""
-    return task.utilization > 1.0
+def is_heavy(task: Task, all_heavy: bool = False) -> bool:
+    """A task no single core could ever finish in time.
+
+    ``all_heavy`` forces every task into its own exclusive cluster, even
+    the tiny ones. That is the "-H" variant the H2LP paper compares
+    against: it shows what exclusive clustering costs when a system is
+    full of small tasks, each holding a whole cluster it cannot fill.
+    """
+    return all_heavy or task.utilization > 1.0
 
 
 def required_cores(task: Task, speed: float = 1.0) -> int:
@@ -91,7 +97,7 @@ def required_cores(task: Task, speed: float = 1.0) -> int:
 
 
 def allocate(taskset: TaskSet, sizes: Dict[int, int] = None,
-             prefer_edge: bool = True) -> Allocation:
+             prefer_edge: bool = True, all_heavy: bool = False) -> Allocation:
     """Split the tasks and hand out the cores.
 
     Heavy tasks are served first, largest first, because they are the ones
@@ -106,8 +112,8 @@ def allocate(taskset: TaskSet, sizes: Dict[int, int] = None,
     result = Allocation()
     sizes = sizes or {}
 
-    heavy = [t for t in taskset.tasks if is_heavy(t)]
-    light = [t for t in taskset.tasks if not is_heavy(t)]
+    heavy = [t for t in taskset.tasks if is_heavy(t, all_heavy)]
+    light = [t for t in taskset.tasks if not is_heavy(t, all_heavy)]
     result.heavy = [t.id for t in heavy]
     result.light = [t.id for t in light]
 
@@ -157,7 +163,8 @@ def allocate(taskset: TaskSet, sizes: Dict[int, int] = None,
     return result
 
 
-def solve(taskset: TaskSet, cfg, protocol, max_rounds: int = 12):
+def solve(taskset: TaskSet, cfg, protocol, max_rounds: int = 12,
+          all_heavy: bool = False):
     """Algorithm 1 of the paper: grow the clusters until they are enough.
 
     The first cluster size ignores blocking, because blocking cannot be
@@ -178,7 +185,7 @@ def solve(taskset: TaskSet, cfg, protocol, max_rounds: int = 12):
     sizes: Dict[int, int] = {}
 
     for _ in range(max_rounds):
-        allocation = allocate(taskset, sizes)
+        allocation = allocate(taskset, sizes, all_heavy=all_heavy)
         if not allocation.feasible:
             return allocation, None, None
 

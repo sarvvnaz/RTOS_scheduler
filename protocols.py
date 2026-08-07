@@ -38,6 +38,7 @@ class Protocol(Enum):
 
     MSRP = "msrp"            # spin-based
     POMIP = "pomip"          # suspension-based, migratory priority inheritance
+    H2LP = "h2lp"            # hybrid: spin behind a per-cluster token
     ADAPTIVE = "adaptive"    # picks between them -- not decided yet
 
 
@@ -47,12 +48,13 @@ class Blocking:
 
     task_id: int
     node_id: int
-    spin: float = 0.0        # remote waiting that burns the core (MSRP)
-    overhead: float = 0.0    # context switches (POMIP only)
+    spin: float = 0.0        # remote waiting that burns the core (MSRP, H2LP)
+    token: float = 0.0       # waiting for this cluster's CS token (H2LP)
+    overhead: float = 0.0    # context switches (POMIP, H2LP)
 
     @property
     def total(self) -> float:
-        return self.spin + self.overhead
+        return self.spin + self.token + self.overhead
 
     @property
     def on_core(self) -> float:
@@ -60,6 +62,9 @@ class Blocking:
 
         Spinning holds the core; suspension gives it up, which is why it
         never appears here. Context switches are paid either way.
+
+        Token waiting is a suspension too -- that is the whole point of
+        the token -- so it is excluded for the same reason.
 
         Arrival blocking is not here because it is charged once per job,
         not once per node -- see ``local_blocking``.
@@ -92,7 +97,8 @@ class ResourceAnalysis:
                  context_switch: float = 0.0):
         if protocol is Protocol.ADAPTIVE:
             raise NotImplementedError(
-                "the adaptive protocol is not decided yet; use MSRP or POMIP")
+                "the adaptive protocol is not decided yet; "
+                "use MSRP, POMIP or H2LP")
 
         self.taskset = taskset
         self.mapper = mapper
@@ -125,6 +131,79 @@ class ResourceAnalysis:
         # it with every core it merely had access to.
         cores = {n.core_id for n in task.real_nodes() if n.core_id is not None}
         return max(len(cores), 1)
+
+    # -- H2LP: spinning behind a per-cluster token ------------------------
+    def cluster_of(self, core_id: int):
+        """Which cluster a core belongs to.
+
+        Heavy tasks own a cluster each; every core left over belongs to
+        the one shared pool. Without a federated allocation there are no
+        clusters, so each core stands alone -- which is exactly MSRP.
+        """
+        allocation = getattr(self.mapper, "allocation", None)
+        if allocation is None:
+            return ("core", core_id)
+
+        for task_id, cores in allocation.clusters.items():
+            if core_id in cores:
+                return ("cluster", task_id)
+        return ("shared", 0)
+
+    def h2lp_spin_delay(self, node: Node, resource_id: int) -> float:
+        """Worst-case spin for one request under H2LP.
+
+        This is where H2LP earns its keep. Under MSRP a request queues
+        behind one request from every other *core* that uses the resource.
+        Under H2LP a cluster holds one CS token per resource, so at most
+        one vertex per *cluster* can be spinning for it at a time, and the
+        queue is one deep per cluster instead of one deep per core.
+
+        On a machine where a cluster holds many cores that is a large
+        reduction, and it is the reason the protocol scales where a plain
+        spin lock does not.
+        """
+        per_core = self.holders(resource_id)
+        own = self.cluster_of(node.core_id) if node.core_id is not None else None
+
+        worst_per_cluster: Dict[tuple, float] = {}
+        for core_id, length in per_core.items():
+            cluster = self.cluster_of(core_id)
+            if cluster == own:
+                continue                  # own cluster is the token's job
+            worst_per_cluster[cluster] = max(
+                worst_per_cluster.get(cluster, 0.0), length)
+
+        return sum(worst_per_cluster.values())
+
+    def token_delay(self, task: Task, node: Node, resource_id: int) -> float:
+        """Waiting for this cluster's CS token, for one request.
+
+        The token is what stops several vertices of the same task spinning
+        for one resource at once. The price is that a vertex may have to
+        wait for its own siblings to finish with it first, and that wait
+        is a suspension rather than a spin.
+
+        Only a heavy task pays this: a light task has a cluster to itself
+        in the analysis, so a token is always free for it, which is why
+        the paper says H2LP reduces to MSRP for light tasks.
+        """
+        if not self.is_heavy(task):
+            return 0.0
+
+        siblings = max(self.num_requests(task, resource_id) - 1, 0)
+        if not siblings:
+            return 0.0
+
+        # at most the other requests of this task, each held for its own
+        # longest critical section
+        return siblings * self.max_cs(task, resource_id)
+
+    def is_heavy(self, task: Task) -> bool:
+        """Whether the task owns a cluster, in this allocation."""
+        allocation = getattr(self.mapper, "allocation", None)
+        if allocation is None:
+            return False
+        return task.id in allocation.clusters
 
     def cluster_speed(self, task: Task) -> float:
         """How fast the cores this task runs on are.
@@ -228,9 +307,21 @@ class ResourceAnalysis:
         return {n.core_id for n in task.real_nodes() if n.core_id is not None}
 
     def task_local_blocking(self, task: Task) -> float:
-        """Local blocking over every core the task actually uses."""
-        if self.protocol is not Protocol.MSRP:
+        """Arrival blocking, over every core the task actually uses.
+
+        This is B^A. Under MSRP every task can suffer it. Under H2LP only
+        a *light* task can: a heavy task owns its cluster outright, so no
+        other task is ever running there to block its arrival -- which is
+        exactly what the paper states. POMIP suspends instead of holding
+        the core, so it has no arrival blocking of this kind.
+        """
+        if self.protocol is Protocol.MSRP:
+            pass
+        elif self.protocol is Protocol.H2LP and not self.is_heavy(task):
+            pass
+        else:
             return 0.0
+
         return sum(self.local_blocking(task, core_id)
                    for core_id in self.cores_used_by(task))
 
@@ -303,11 +394,15 @@ class ResourceAnalysis:
 
         * POMIP -- the path-oriented bound, sum over resources of the
           worst F^I + F^O, plus the context switches every request pays
-        * MSRP  -- the spinning and the local blocking its own nodes
+        * MSRP  -- the spinning and the arrival blocking its own nodes
           suffer, which is the equivalent quantity for a spin lock
+        * H2LP  -- the same shape as the paper's Corollary 4.9,
+          ``L_i + B^S + B^T + B^A + I_i / n_i``: spin blocking counted per
+          cluster rather than per core, token blocking for a heavy task,
+          arrival blocking for a light one
 
-        Both protocols are judged by this same test. Running it for POMIP
-        alone would fail it for a reason MSRP is never asked about.
+        Every protocol is judged by this same test. Running it for one
+        alone would fail it for a reason the others are never asked about.
         """
         m_i = self.cores_of(task)
         result = TaskBlocking(task_id=task.id, num_cores=m_i)
@@ -346,6 +441,15 @@ class ResourceAnalysis:
             if self.protocol is Protocol.MSRP:
                 # spinning: the core stays busy for the whole wait
                 result.spin += self.spin_delay(node, resource_id)
+
+            elif self.protocol is Protocol.H2LP:
+                # hybrid: spin once the token is held, suspend before that
+                result.spin += self.h2lp_spin_delay(node, resource_id)
+                waiting = self.token_delay(task, node, resource_id)
+                result.token += waiting
+                if waiting:
+                    result.overhead += 2 * self.context_switch
+
             else:
                 # suspending: the core is free, but the switches are not
                 result.overhead += 2 * self.context_switch
@@ -401,6 +505,11 @@ class ResourceAnalysis:
     def total_local(self) -> float:
         """Arrival blocking, which lives at task level, not node level."""
         return sum(self.task_local_blocking(t) for t in self.taskset.tasks)
+
+    @property
+    def total_token(self) -> float:
+        """Time spent waiting for a CS token (H2LP only)."""
+        return sum(b.token for b in self.blocking.values())
 
     @property
     def total_overhead(self) -> float:

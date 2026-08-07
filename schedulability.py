@@ -174,7 +174,8 @@ def evaluate(cfg, protocol: Protocol) -> Result:
     taskset = generate_taskset(cfg)
 
     if cfg.federated:
-        allocation, mapper, analysis = solve(taskset, cfg, protocol)
+        allocation, mapper, analysis = solve(
+            taskset, cfg, protocol, all_heavy=cfg.all_tasks_heavy)
         if mapper is None or not allocation.feasible:
             return Result(schedulable=False, mapped=False, protocol=protocol,
                           allocation=allocation,

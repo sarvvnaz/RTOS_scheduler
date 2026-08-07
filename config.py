@@ -57,6 +57,11 @@ class Config:
     # lets every task use every core, which is plain partitioning.
     federated: bool = True
 
+    # Force every task into its own exclusive cluster, however small it
+    # is. This is the "-H" variant the H2LP paper compares against: it
+    # shows what exclusive clustering costs a system full of small tasks.
+    all_tasks_heavy: bool = False
+
     # protocol overhead: one context switch, paid twice per suspension
     context_switch: float = 1.0       # only LPP-P pays this
 

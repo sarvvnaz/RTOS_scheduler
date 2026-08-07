@@ -47,10 +47,27 @@ EDGE_PARAMETERS = {"num_edge_servers", "cores_per_edge_server"}
 SCENARIOS = [
     Scenario("local, spin (MSRP)", Protocol.MSRP, LOCAL_ONLY),
     Scenario("local, suspension (POMIP)", Protocol.POMIP, LOCAL_ONLY),
+    Scenario("local, hybrid (H2LP)", Protocol.H2LP, LOCAL_ONLY),
     Scenario("edge, spin (MSRP)", Protocol.MSRP),
     Scenario("edge, suspension (POMIP)", Protocol.POMIP),
+    Scenario("edge, hybrid (H2LP)", Protocol.H2LP),
     Scenario("local, adaptive", Protocol.ADAPTIVE, LOCAL_ONLY, implemented=False),
     Scenario("edge, adaptive", Protocol.ADAPTIVE, implemented=False),
+]
+
+# The H2LP paper's Figure 3: what exclusive clustering costs. "-H" puts
+# every task in its own cluster however small it is, which wastes cores on
+# tasks that cannot fill them; the default keeps light tasks together on a
+# shared pool. Run as its own figure rather than as extra lines on all the
+# others, because it asks a different question -- how to *classify* tasks,
+# not which protocol to lock with.
+ALL_HEAVY = {"all_tasks_heavy": True}
+
+CLUSTERING_SCENARIOS = [
+    Scenario("H2LP, heavy + light", Protocol.H2LP),
+    Scenario("H2LP-H, every task heavy", Protocol.H2LP, ALL_HEAVY),
+    Scenario("MSRP, heavy + light", Protocol.MSRP),
+    Scenario("MSRP-H, every task heavy", Protocol.MSRP, ALL_HEAVY),
 ]
 
 
@@ -142,6 +159,28 @@ SWEEPS = [
           "Schedulability vs cores per edge server",
           {"ccr": 0.05, "u_norm": 0.3, "num_edge_servers": 1,
            "accesses_per_resource": 30, "csp": 0.15}),
+]
+
+
+# The clustering question, asked the way the H2LP paper asks it: the same
+# load sweep at a small and a large task count, because the cost of giving
+# every task its own cluster grows with how many tiny tasks there are.
+#
+# Run on the local machine alone (m=8, no edge), as the paper does. With
+# the edge platform attached there are 24 cores for at most 8 tasks, so
+# exclusive clustering never runs short and the question it is asking --
+# what does over-provisioning cost -- cannot be seen at all.
+CLUSTERING_BASE = {"num_cores": 8, "num_edge_servers": 0,
+                   "accesses_per_resource": 30, "csp": 0.15}
+
+CLUSTERING_SWEEPS = [
+    Sweep("u_norm", "U_norm", [0.1, 0.2, 0.3, 0.5, 0.7, 1.0],
+          "Clustering: exclusive vs shared, 4 tasks",
+          {**CLUSTERING_BASE, "num_tasks": 4}),
+
+    Sweep("u_norm", "U_norm", [0.1, 0.2, 0.3, 0.5, 0.7, 1.0],
+          "Clustering: exclusive vs shared, 8 tasks",
+          {**CLUSTERING_BASE, "num_tasks": 8}),
 ]
 
 
@@ -257,11 +296,24 @@ def run_sweep(base: Config, sweep: Sweep, count: int,
 def run_all(base: Config, count: int = 100,
             sweeps: Optional[List[Sweep]] = None,
             progress: Optional[Callable] = None) -> Dict[str, Dict]:
-    """Run every sweep. This is the whole experiment."""
+    """Run every sweep, then the clustering comparison. The whole thing."""
     sweeps = sweeps or SWEEPS
-    return {sweep.title: {"sweep": sweep,
-                          "lines": run_sweep(base, sweep, count, progress=progress)}
-            for sweep in sweeps}
+
+    results = {sweep.title: {"sweep": sweep,
+                             "lines": run_sweep(base, sweep, count,
+                                                progress=progress)}
+               for sweep in sweeps}
+
+    # the clustering figures use their own set of lines, so they are run
+    # separately rather than folded into every chart above
+    for sweep in CLUSTERING_SWEEPS:
+        results[sweep.title] = {
+            "sweep": sweep,
+            "lines": run_sweep(base, sweep, count,
+                               scenarios=CLUSTERING_SCENARIOS,
+                               progress=progress)}
+
+    return results
 
 
 def to_csv(results: Dict[str, Dict]) -> str:

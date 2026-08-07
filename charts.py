@@ -15,12 +15,21 @@ import matplotlib.pyplot as plt
 # Colour says which protocol, line style says which platform, so the two
 # comparisons can be read off the same chart independently.
 STYLES = {
-    "local, spin (MSRP)":       dict(color="#1f77b4", marker="o", linestyle="--"),
+    "local, spin (MSRP)":        dict(color="#1f77b4", marker="o", linestyle="--"),
     "local, suspension (POMIP)": dict(color="#d62728", marker="^", linestyle="--"),
-    "edge, spin (MSRP)":        dict(color="#1f77b4", marker="o"),
-    "edge, suspension (POMIP)": dict(color="#d62728", marker="^"),
-    "local, adaptive":          dict(color="#2ca02c", marker="d", linestyle="--"),
-    "edge, adaptive":           dict(color="#2ca02c", marker="d"),
+    "local, hybrid (H2LP)":      dict(color="#2ca02c", marker="s", linestyle="--"),
+    "edge, spin (MSRP)":         dict(color="#1f77b4", marker="o"),
+    "edge, suspension (POMIP)":  dict(color="#d62728", marker="^"),
+    "edge, hybrid (H2LP)":       dict(color="#2ca02c", marker="s"),
+    "local, adaptive":           dict(color="#9467bd", marker="d", linestyle="--"),
+    "edge, adaptive":            dict(color="#9467bd", marker="d"),
+
+    # the clustering figures: solid keeps light tasks together, dashed
+    # gives every task its own cluster
+    "H2LP, heavy + light":       dict(color="#2ca02c", marker="s"),
+    "H2LP-H, every task heavy":  dict(color="#2ca02c", marker="s", linestyle="--"),
+    "MSRP, heavy + light":       dict(color="#1f77b4", marker="o"),
+    "MSRP-H, every task heavy":  dict(color="#1f77b4", marker="o", linestyle="--"),
 }
 
 
@@ -63,7 +72,11 @@ def draw_all(results: Dict[str, Dict], directory: str = "charts") -> list:
     written = []
 
     for index, (title, block) in enumerate(results.items(), start=1):
-        name = f"{index:02d}_{block['sweep'].key}.png"
+        # two charts can sweep the same parameter and differ only in what
+        # they hold fixed, so the title has to reach the filename
+        slug = "".join(c if c.isalnum() else "_" for c in title.lower())
+        slug = "_".join(part for part in slug.split("_") if part)[:48]
+        name = f"{index:02d}_{slug}.png"
         written.append(draw_sweep(title, block, os.path.join(directory, name)))
 
     return written
