@@ -108,7 +108,32 @@ def _split_over_tasks(cfg: Config, node_counts: List[int],
 
 def _make_task(task_id: int, utilization: float, num_nodes: int,
                cfg: Config, rng: np.random.Generator) -> Task:
-    """Build one task graph with its node execution times."""
+    """Build one task graph, retrying until it is at least possible.
+
+    A task whose critical path is longer than its deadline can never be
+    scheduled: the path is a chain, so no number of cores shortens it.
+    Such a task says nothing about the scheduler, and counting it as a
+    scheduling failure would blame the analysis for the input.
+
+    The graph shape and the utilization split both move the critical path,
+    so drawing again usually fixes it. If it never does, the setting
+    itself is the problem and the caller is told so.
+    """
+    for _ in range(cfg.generation_attempts):
+        task = _draw_task(task_id, utilization, num_nodes, cfg, rng)
+        if task.critical_path_length <= task.deadline:
+            return task
+
+    raise ValueError(
+        f"task {task_id} (u={utilization:.2f}, {num_nodes} nodes) always came "
+        f"out with a critical path longer than its deadline after "
+        f"{cfg.generation_attempts} attempts: this utilization does not fit "
+        f"in this many nodes at these periods")
+
+
+def _draw_task(task_id: int, utilization: float, num_nodes: int,
+               cfg: Config, rng: np.random.Generator) -> Task:
+    """One attempt at building a task graph with its execution times."""
     graph = _make_graph(num_nodes, cfg.edge_prob, rng)
     sink_id = num_nodes + 1
 

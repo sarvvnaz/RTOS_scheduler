@@ -48,6 +48,10 @@ class Config:
     # what balances them.
     cost_weights: tuple = (1.0, 1.0, 1.0)   # w1, w2, w3
 
+    # how many times to redraw a task whose critical path does not fit in
+    # its deadline before giving up on the setting entirely
+    generation_attempts: int = 20
+
     # federated scheduling: heavy tasks (u > 1) get their own dedicated
     # cluster of cores, light tasks share what is left. Turning this off
     # lets every task use every core, which is plain partitioning.

@@ -72,6 +72,7 @@ class Sweep:
     values: list
     title: str
     base: dict = field(default_factory=dict)
+    confound: str = ""             # what else moves when this one does
 
     def apply(self, base: Config, scenario: Scenario, value) -> Config:
         return scenario.config(base, **{**self.base, self.key: value})
@@ -83,6 +84,12 @@ class Sweep:
             return ""
         return ", ".join(f"{k}={v}" for k, v in sorted(self.base.items()))
 
+    @property
+    def caption(self) -> str:
+        """Conditions plus any warning about what else this sweep moves."""
+        parts = [p for p in (self.conditions, self.confound) if p]
+        return "   ".join(parts)
+
 
 # Every chart the project definition asks for.
 SWEEPS = [
@@ -93,21 +100,36 @@ SWEEPS = [
           [10, 30, 50, 80, 150],
           "Schedulability vs requests per resource"),
 
-    # resource count only bites once there is enough locking to contend on
+    # Note the two effects pulling against each other here: with requests
+    # per resource held fixed, more resource types means more total
+    # requests but less contention on each one. Spin feels only the
+    # second, the POMIP bound sums over the first, which is why the two
+    # curves separate. At csp=0.25 every set missed its deadline and both
+    # curves sat flat on zero.
     Sweep("num_resources", "resource types", [2, 4, 6, 8],
           "Schedulability vs number of resource types",
-          {"accesses_per_resource": 50, "csp": 0.25}),
+          {"accesses_per_resource": 30, "csp": 0.15},
+          confound="NOTE: total requests = n_r x requests-per-resource"),
 
     Sweep("csp", "CSP", [0.1, 0.25, 0.5, 0.75, 1.0],
           "Schedulability vs critical-section share"),
 
-    # same reason: with light locking every task count passes
+    # U and the total request count are both fixed, so more tasks means
+    # smaller tasks that each lock less often. Spin gets worse (more tasks
+    # means more cores to queue behind) while the POMIP bound gets better
+    # (fewer requests per task), so the curves cross. At csp=0.25 both sat
+    # flat on zero.
     Sweep("num_tasks", "tasks", [4, 6, 8],
           "Schedulability vs number of tasks",
-          {"accesses_per_resource": 50, "csp": 0.25}),
+          {"accesses_per_resource": 20, "csp": 0.15, "num_resources": 2},
+          confound="NOTE: U and total requests fixed, so tasks get smaller"),
 
+    # U = m * U_norm is the definition the project gives, so adding cores
+    # adds load in the same breath. The chart cannot separate the two, and
+    # says so on its face rather than being read as "more cores is worse".
     Sweep("num_cores", "local cores m", [4, 8, 16, 32],
-          "Schedulability vs local core count"),
+          "Schedulability vs local core count",
+          confound="NOTE: U = m x U_norm, so total load rises with m"),
 
     # offloading only pays when communication is cheap enough to cross a
     # machine boundary, and only matters when the local machine is loaded
@@ -125,12 +147,27 @@ SWEEPS = [
 
 @dataclass
 class Point:
-    """One point on one line."""
+    """One point on one line, with what produced it.
+
+    The diagnostics are here so a flat or collapsing curve can be read:
+    a point at zero because nothing could be generated means something
+    quite different from a point at zero because every core was overloaded.
+    """
 
     value: float
     schedulability: float
     quality_of_service: float
     samples: int
+
+    generation_failures: int = 0     # the setting could not be built at all
+    allocation_failures: int = 0     # not enough cores for the heavy tasks
+    mapping_failures: int = 0        # some node found no core
+    deadline_misses: int = 0         # tasks over their deadline
+    unplaced_nodes: int = 0
+    offloaded: float = 0.0           # share of nodes placed on edge cores
+    heavy_tasks: float = 0.0         # mean heavy tasks per set
+    critical_path_ratio: float = 0.0  # mean L / D
+    comm_ratio: float = 0.0          # mean cost of one edge / D
 
 
 def run_point(base: Config, sweep: Sweep, scenario: Scenario, value,
@@ -144,20 +181,44 @@ def run_point(base: Config, sweep: Sweep, scenario: Scenario, value,
     scheduled = 0
     qos = 0.0
     samples = 0
+    point = Point(value, 0.0, 0.0, 0)
 
     for i in range(count):
         cfg = sweep.apply(base, scenario, value).copy_with(seed=base.seed + i)
         try:
             result = evaluate(cfg, scenario.protocol)
         except ValueError:
-            continue                      # this setting cannot be generated
+            # the setting itself cannot be built: not a scheduling failure,
+            # so it is counted separately rather than averaged in
+            point.generation_failures += 1
+            continue
+
         scheduled += result.schedulable
         qos += result.quality_of_service
         samples += 1
 
+        if result.allocation is not None and not result.allocation.feasible:
+            point.allocation_failures += 1
+        if not result.mapped:
+            point.mapping_failures += 1
+        point.unplaced_nodes += result.unplaced_nodes
+        point.deadline_misses += len(result.missed)
+        point.heavy_tasks += result.heavy_tasks
+        point.critical_path_ratio += result.critical_path_ratio
+        point.comm_ratio += result.comm_ratio
+        if result.nodes_total:
+            point.offloaded += result.nodes_on_edge / result.nodes_total
+
     if not samples:
-        return Point(value, 0.0, 0.0, 0)
-    return Point(value, scheduled / samples, qos / samples, samples)
+        return point
+
+    point.schedulability = scheduled / samples
+    point.quality_of_service = qos / samples
+    point.samples = samples
+    for field_name in ("offloaded", "heavy_tasks",
+                       "critical_path_ratio", "comm_ratio"):
+        setattr(point, field_name, getattr(point, field_name) / samples)
+    return point
 
 
 def run_sweep(base: Config, sweep: Sweep, count: int,
@@ -205,12 +266,20 @@ def run_all(base: Config, count: int = 100,
 
 def to_csv(results: Dict[str, Dict]) -> str:
     """Every number behind the charts, so the report can quote them."""
-    rows = ["chart,parameter,value,scenario,schedulability,qos,samples,conditions"]
+    rows = ["chart,parameter,value,scenario,schedulability,qos,samples,"
+            "conditions,gen_failures,alloc_failures,map_failures,"
+            "deadline_misses,unplaced_nodes,offloaded,heavy_tasks,"
+            "critical_path_ratio,comm_ratio"]
     for title, block in results.items():
         sweep = block["sweep"]
         for name, points in block["lines"].items():
             for p in points:
                 rows.append(f'"{title}",{sweep.key},{p.value},"{name}",'
                             f"{p.schedulability:.4f},{p.quality_of_service:.4f},"
-                            f'{p.samples},"{sweep.conditions}"')
+                            f'{p.samples},"{sweep.conditions}",'
+                            f"{p.generation_failures},{p.allocation_failures},"
+                            f"{p.mapping_failures},{p.deadline_misses},"
+                            f"{p.unplaced_nodes},{p.offloaded:.4f},"
+                            f"{p.heavy_tasks:.2f},{p.critical_path_ratio:.4f},"
+                            f"{p.comm_ratio:.4f}")
     return "\n".join(rows)

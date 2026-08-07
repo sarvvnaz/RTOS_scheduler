@@ -49,7 +49,7 @@ def draw_sweep(title: str, block: Dict, path: str) -> str:
     left.legend(fontsize=8, loc="best")
     # the chart must say what it was measured under, or the reader cannot
     # tell why two charts disagree about the same scenario
-    figure.suptitle(title + (f"\n({sweep.conditions})" if sweep.conditions else ""),
+    figure.suptitle(title + (f"\n({sweep.caption})" if sweep.caption else ""),
                     fontsize=11)
     figure.tight_layout()
     figure.savefig(path, dpi=130)

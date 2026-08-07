@@ -282,6 +282,11 @@ class TaskSet:
         for task in self.tasks:
             assert nx.is_directed_acyclic_graph(task.graph), "graph has a cycle"
 
+            # a chain longer than the deadline is impossible on any number
+            # of cores, so it must never reach the scheduler
+            assert task.critical_path_length <= task.deadline, \
+                f"task {task.id} has a critical path longer than its deadline"
+
             roots = [v for v in task.graph if task.graph.in_degree(v) == 0]
             leaves = [v for v in task.graph if task.graph.out_degree(v) == 0]
             assert roots == [task.source_id], "graph needs exactly one source"

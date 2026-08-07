@@ -41,6 +41,14 @@ class Result:
     unplaced_nodes: int = 0
     allocation: object = None                     # federated.Allocation, if any
 
+    # -- diagnostics: what the inputs looked like, not just the verdict --
+    nodes_total: int = 0
+    nodes_on_edge: int = 0
+    heavy_tasks: int = 0
+    critical_path_ratio: float = 0.0    # mean L / D over the tasks
+    comm_ratio: float = 0.0             # mean cost of one edge / D
+    tasks_total: int = 0
+
     @property
     def reason(self) -> str:
         """One line saying what went wrong, for the report."""
@@ -115,7 +123,35 @@ def test(taskset: TaskSet, mapper, analysis: ResourceAnalysis,
     result.schedulable = (mapper.succeeded
                           and not result.overloaded
                           and not result.missed)
+    _describe(taskset, allocation, result)
     return result
+
+
+def _describe(taskset: TaskSet, allocation, result: Result) -> None:
+    """Record what the input looked like, so a flat curve can be explained.
+
+    A verdict on its own cannot tell you whether a chart is flat because
+    the scheduling is hard or because the task sets were impossible from
+    the start.
+    """
+    ratios = []
+    comms = []
+
+    for task in taskset.tasks:
+        ratios.append(task.critical_path_length / task.deadline)
+        edges = [task.comm_cost(u, v) for u, v in task.graph.edges]
+        if edges:
+            comms.append(sum(edges) / len(edges) / task.deadline)
+
+        for node in task.real_nodes():
+            result.nodes_total += 1
+            if node.core_id is not None and taskset.core(node.core_id).is_edge:
+                result.nodes_on_edge += 1
+
+    result.tasks_total = len(taskset.tasks)
+    result.heavy_tasks = len(allocation.heavy) if allocation else 0
+    result.critical_path_ratio = sum(ratios) / len(ratios) if ratios else 0.0
+    result.comm_ratio = sum(comms) / len(comms) if comms else 0.0
 
 
 def evaluate(cfg, protocol: Protocol) -> Result:
